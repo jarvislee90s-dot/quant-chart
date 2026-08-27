@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantchart"
+version = "0.1.0"
+description = "YAML 驱动的行情图工作流（Wind Excel/API → 指标 → Plotly）"
+requires-python = ">=3.12"
+dependencies = [
+  "pandas>=2.2",
+  "plotly>=6.0",
+  "kaleido>=1.3",
+  "PyYAML>=6.0",
+  "click>=8.1",
+  "openpyxl>=3.1",
+  "python-calamine>=0.2",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+chartflow = "quantchart.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

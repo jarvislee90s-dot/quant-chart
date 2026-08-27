@@ -24,7 +24,7 @@
 **Files:**
 - Create: `pyproject.toml`, `.gitignore`, `src/quantchart/__init__.py`, `tests/__init__.py`, `tests/test_smoke.py`
 
-- [ ] **Step 1: 写 pyproject.toml**
+- [x] **Step 1: 写 pyproject.toml**
 
 ```toml
 [build-system]
@@ -57,7 +57,7 @@ chartflow = "quantchart.cli:main"
 where = ["src"]
 ```
 
-- [ ] **Step 2: 写 .gitignore 与空包**
+- [x] **Step 2: 写 .gitignore 与空包**
 
 `.gitignore`:
 ```
@@ -83,12 +83,12 @@ def test_import():
     assert quantchart.__version__ == "0.1.0"
 ```
 
-- [ ] **Step 3: 安装并跑通**
+- [x] **Step 3: 安装并跑通**
 
 Run: `cd /e/LLMproject/Github/quant-chart && pip install -e ".[dev]" && pytest -q`
 Expected: `1 passed`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A && git commit -m "chore: 项目骨架与工具链"
