@@ -1164,7 +1164,7 @@ git add src/quantchart/render/figure.py tests/test_figure.py && git commit -m "f
 - Create: `src/quantchart/plugins/basis_review.py`
 - Test: `tests/test_plugin_basis_review.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -1199,9 +1199,9 @@ def test_unknown_strategy():
         pass
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL
+- [x] **Step 2: 跑测试确认失败** → FAIL
 
-- [ ] **Step 3: 实现 plugins.py 与 basis_review.py**
+- [x] **Step 3: 实现 plugins.py 与 basis_review.py**
 
 ```python
 # src/quantchart/core/plugins.py
@@ -1277,9 +1277,9 @@ def run(df, slots, **params):
 
 （`events` 原语需要的 `spec["events"]` 映射由 pipeline 在渲染时按 `ref` 注入，见 Task 12 `_wire_events`。）
 
-- [ ] **Step 4: 跑测试通过** → `2 passed`
+- [x] **Step 4: 跑测试通过** → `2 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/core/plugins.py src/quantchart/plugins tests/test_plugin_basis_review.py \

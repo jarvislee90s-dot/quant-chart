@@ -67,3 +67,13 @@
 - **原因**：①计划实现的连线（低点→基准线）是 `add_trace(go.Scatter(mode="lines"))`
   而非 layout shape，测试断言查错了容器；②单日数据 `sep_center` 为空、
   本来就没有日分隔线，断言恒假。两处均为测试侧修复，实现无偏差。
+
+## Task 10 —— 插件调用方式测试与注册机制矛盾
+
+- **计划原文**：`out = strat.run(slots.df, slots, trigger=250.0)`；
+  而 `register_strategy` 注册的就是函数本体，且 Task 12 流水线为
+  `get_strategy(cfg["strategy"])(slots.df, slots, **params)` 直接调用
+- **实际做法**：测试改为 `out = strat(slots.df, slots, trigger=250.0)`
+- **原因**：计划内注册机制（REGISTRY[name]=fn）、流水线调用、测试三处中
+  测试一处写成了 `.run` 方法调用，与其余两处矛盾。按流水线的调用约定
+  （注册值为可调用对象）修测试，实现无偏差。
