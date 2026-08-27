@@ -390,7 +390,7 @@ git add -A && git commit -m "feat(adapters): Wind两表适配器（对齐/前值
 - Create: `src/quantchart/core/indicators.py`
 - Test: `tests/test_indicators.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -433,11 +433,11 @@ def test_unknown_indicator_raises():
         assert "nope" in str(e)
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pytest tests/test_indicators.py -q` → FAIL（模块不存在）
 
-- [ ] **Step 3: 实现 indicators.py**
+- [x] **Step 3: 实现 indicators.py**
 
 ```python
 """指标注册表：纯函数 df→df（加列），YAML 按名引用、可链式。"""
@@ -491,11 +491,11 @@ def vwap(df, price="fut_close", volume="fut_volume", amount="fut_amount",
     return df
 ```
 
-- [ ] **Step 4: 跑测试通过**
+- [x] **Step 4: 跑测试通过**
 
 Run: `pytest tests/test_indicators.py -q` → `4 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/core/indicators.py tests/test_indicators.py && git commit -m "feat(core): 指标注册表（basis/basis_rate/vwap，当日重置）"
