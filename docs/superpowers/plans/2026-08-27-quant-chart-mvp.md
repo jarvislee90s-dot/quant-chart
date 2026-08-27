@@ -1384,7 +1384,7 @@ git add src/quantchart/plugins/basis_zones.py tests/test_plugin_basis_zones.py \
 - Create: `src/quantchart/core/pipeline.py`
 - Test: `tests/test_pipeline.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import yaml
@@ -1419,9 +1419,9 @@ def test_pipeline_end_to_end(tmp_path):
     assert png.stat().st_size > 30_000
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL
+- [x] **Step 2: 跑测试确认失败** → FAIL
 
-- [ ] **Step 3: 实现 config.py 与 pipeline.py**
+- [x] **Step 3: 实现 config.py 与 pipeline.py**
 
 ```python
 # src/quantchart/core/config.py
@@ -1488,9 +1488,9 @@ def run_pipeline(cfg: dict, title: str = "") -> tuple:
     return fig, rep
 ```
 
-- [ ] **Step 4: 跑测试通过** → `pytest tests/test_pipeline.py -q` → `2 passed`（kaleido 需 Chrome，本机已具备）
+- [x] **Step 4: 跑测试通过** → `pytest tests/test_pipeline.py -q` → `2 passed`（kaleido 需 Chrome，本机已具备）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/core/config.py src/quantchart/core/pipeline.py tests/test_pipeline.py \
