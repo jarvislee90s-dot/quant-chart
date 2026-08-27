@@ -97,3 +97,65 @@
 - **原因**：单测用 pytest `tmp_path` 掩盖了该问题；验收命令按计划原文
   首次执行即失败。输出目录自建属于命令行工具的常规行为，属最小修复，
   不改变任何设计接口。
+
+---
+
+# 评审修复记录（2026-08-28，主 Agent 评审后）
+
+上文 10 条偏差经评审全部裁定合理。以下为评审要求修复项的实施记录。
+
+## P0-1 vwap 零成交分钟崩溃（已修）
+
+- `indicators.py` 原 `vol.replace(0, pd.NA)` 将 float64 升为 object，
+  `cumsum` 抛 `TypeError`（已用失败测试复现）。改为 `vol.where(vol > 0)`
+  产生 NaN 并保持 float64，除后 `ffill` 即零成交分钟沿用前值。
+- `make_fixtures.py` 新增 `zero_vol_minute` 参数，fut 夹具含 10:00 零成交分钟，
+  流水线端到端测试随即覆盖该分支。
+
+## P0-2 WINDOW_DIFF 死常量（已修）
+
+- `test_regression.py` 新增 `test_window_diff_series`：以现价（末日收盘）减各窗口
+  最低 `fut_low`，`len` 前置断言 + 逐值 `abs(a-b)<=1` 断言。真实数据上
+  [+250, +198, +263, +375, +384] 验证吻合。
+
+## P0-3 验收产物以 HEAD 重出（已执行）
+
+- 评审所提"陈旧 PNG"与实际有出入：`outputs/` 现存 PNG 为 CLI 修复后
+  （01:50）重新生成，标题与"现价（8.27收盘）"标签此前目测均在。
+  但按"产物必须由最终提交代码生成"的流程要求，评审修复提交后已在 HEAD
+  重跑 `pytest -q` 与 `chartflow run` 并重新出图核验。
+
+## P1-4 auto 模式降级（已修，评审-directed 设计变更）
+
+- 原 `auto` 抓取新浪数据仅用于数天数、最终仍全量走 Excel，且覆盖不足时会
+  阻断一次本可成功的 Excel 运行。现 `auto`/`api` 模式直接抛 `NeedsExcelError`
+  （提示属二期、本期用 `mode=excel`），不再发起网络请求；"新浪期货分钟 + Excel
+  指数"拼装划入二期。`_days_needed` 一并移除（其"节假日当交易日"问题随之消解）。
+- 测试改为断言 auto 不发起网络请求（`_http_get` 被替换为爆炸函数仍须抛
+  `NeedsExcelError`）。README 同步更新。
+
+## P1-5 config 校验下沉（已修）
+
+- `excel` 段存在但缺 `future`/`index` 键时原先绕过校验、在 auto 层裸 KeyError。
+  现校验下沉到 `input.excel.future/index`，错误信息带缺失字段路径；`open` 改
+  `with` 管理。
+
+## P1-6 夹具自举（已修）
+
+- 新增 `tests/conftest.py` 会话级 autouse fixture：夹具 xlsx 缺失时自动运行
+  `make_fixtures.py`（已实测删除 `tests/fixtures/` 后 pytest 自愈）。
+
+# P2 已知问题（评审记录在案，随迭代处理）
+
+1. 适配器跨日 ffill 会把上日 15:00 值填进次日 09:30（建议按日分组填充）。
+2. `test_daily_min_basis_series` 的 `zip(got, DAILY_MIN)` 无长度前置断言
+   （P0-2 已给窗口价差补了同类断言，此处待同样处理）。
+3. `_hline` 存在死赋值（else 分支 `xref = "paper"` 随后被覆盖）；"只给 to 不给
+   from"时标注 x 锚点取 x0 会错位。
+4. `figure.py` 副轴刻度 240–400 与 -15 下限为硬编码量级假设（贴水超出该范围
+   会被裁切），应在注释/文档标明或改为自适应。
+5. `Ctx.y2axis` 字段未被使用。
+6. `signals.daily_min_events` 遇某日整段 NaN 时 `idxmin` 崩溃。
+7. `run_pipeline` 标题回退对单元素 `range` 会 IndexError（`[0]–[1]` 取值）。
+8. 设计 §5 "插件接口启动校验（签名校验、错误定位到插件文件）"未实现。
+9. ~~`_days_needed` 把节假日当交易日~~——已随 P1-4 移除该函数而消解。
