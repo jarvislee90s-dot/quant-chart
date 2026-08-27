@@ -103,7 +103,7 @@ git add -A && git commit -m "chore: 项目骨架与工具链"
 - Create: `src/quantchart/core/session.py`
 - Test: `tests/test_session.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -138,12 +138,12 @@ def test_tick_labels_skip_rules():
     assert labs[slots.day_span[dtm.date(2026, 8, 19)][0]] == "09:30"
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pytest tests/test_session.py -q`
 Expected: FAIL `ModuleNotFoundError: quantchart.core.session`
 
-- [ ] **Step 3: 实现 session.py**
+- [x] **Step 3: 实现 session.py**
 
 ```python
 """槽位引擎：交易时段网格 + 压缩X轴位置映射。"""
@@ -216,12 +216,12 @@ def build_slots(df: pd.DataFrame) -> Slots:
                  tick_pos=tick_pos, tick_lab=tick_lab, n_all=cur)
 ```
 
-- [ ] **Step 4: 跑测试通过**
+- [x] **Step 4: 跑测试通过**
 
 Run: `pytest tests/test_session.py -q`
 Expected: `3 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/core tests/test_session.py && git commit -m "feat(core): 槽位引擎（242格/日+压缩X轴+刻度留空规则）"
