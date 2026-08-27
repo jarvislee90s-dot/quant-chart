@@ -509,7 +509,7 @@ git add src/quantchart/core/indicators.py tests/test_indicators.py && git commit
 - Create: `src/quantchart/core/signals.py`
 - Test: `tests/test_signals.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -539,9 +539,9 @@ def test_window_min_per_day():
     assert evs[0].value == df[df["datetime"] >= pd.Timestamp("2026-08-19 11:30")]["fut_low"].min()
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → `pytest tests/test_signals.py -q` FAIL
+- [x] **Step 2: 跑测试确认失败** → `pytest tests/test_signals.py -q` FAIL
 
-- [ ] **Step 3: 实现 signals.py**
+- [x] **Step 3: 实现 signals.py**
 
 ```python
 """信号层：指标列上的条件 → 事件点（时间+数值+标签）。"""
@@ -580,9 +580,9 @@ def window_min_events(df, windows, col="fut_low", kind="window_min") -> list[Eve
     return out
 ```
 
-- [ ] **Step 4: 跑测试通过** → `2 passed`
+- [x] **Step 4: 跑测试通过** → `2 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/core/signals.py tests/test_signals.py && git commit -m "feat(core): 信号层（每日最低/窗口最低事件）"

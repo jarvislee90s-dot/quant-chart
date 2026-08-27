@@ -18,3 +18,14 @@
   （等于 14:58 的值）。价格每分钟递增 0.1，故 `iloc[-1]-iloc[-2]=0.2` 是正常现象，
   该断言永远不成立；校验 ffill 应比较"填充行==其前一行"，即 `iloc[-2]` 与 `iloc[-3]`。
   `rep.filled_index == 2` 断言已独立验证填充计数，实现本身无偏差。
+
+## Task 5 —— 信号函数测试传入了缺 pos 列的原始 df
+
+- **计划原文**：`evs = daily_min_events(df, slots, col="basis")` /
+  `evs = window_min_events(df, [...], col="fut_low")`（df 为 `_df()` 原始表）
+- **实际做法**：改传 `slots.df`（`daily_min_events(slots.df, slots, …)`、
+  `window_min_events(slots.df, …)`）
+- **原因**：两个信号函数内部都要读 `df.at[i, "pos"]`（Event.pos 字段），输入契约是
+  "含 pos 列的槽位表"。计划 Task 8 的用法 `daily_min_events(slots.df, slots, "basis")`
+  及流水线向插件传 `slots.df` 均符合该契约，仅 Task 5 测试传错了原始 df，
+  KeyError: 'pos'。断言数值不变（同一份数据），实现无偏差。
