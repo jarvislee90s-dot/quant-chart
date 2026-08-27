@@ -1294,7 +1294,7 @@ git add src/quantchart/core/plugins.py src/quantchart/plugins tests/test_plugin_
 - Create: `src/quantchart/plugins/basis_zones.py`
 - Test: `tests/test_plugin_basis_zones.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -1326,9 +1326,9 @@ def test_zones_plugin_layers_and_events():
     assert "{diff}" in lt["text"] and "{pct}" in lt["text"]
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL
+- [x] **Step 2: 跑测试确认失败** → FAIL
 
-- [ ] **Step 3: 实现 basis_zones.py**
+- [x] **Step 3: 实现 basis_zones.py**
 
 ```python
 # src/quantchart/plugins/basis_zones.py
@@ -1366,9 +1366,9 @@ def run(df, slots, trigger=250.0, zones=None, **params):
                           panels=[{**BASE_PANELS[0], "layers": layers}])
 ```
 
-- [ ] **Step 4: 跑测试通过** → `1 passed`
+- [x] **Step 4: 跑测试通过** → `1 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/plugins/basis_zones.py tests/test_plugin_basis_zones.py \
