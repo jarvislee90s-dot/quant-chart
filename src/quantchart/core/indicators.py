@@ -46,6 +46,6 @@ def vwap(df, price="fut_close", volume="fut_volume", amount="fut_amount",
     vol = df[volume].fillna(0) * contract_mult
     day = df["datetime"].dt.date
     cum_a = amt.groupby(day).cumsum()
-    cum_v = vol.replace(0, pd.NA).groupby(day).cumsum()
-    df[out] = (cum_a / cum_v.astype(float)).ffill()
+    cum_v = vol.where(vol > 0).groupby(day).cumsum()   # 零成交分钟记 NaN（保持float64），前值填充
+    df[out] = (cum_a / cum_v).ffill()
     return df

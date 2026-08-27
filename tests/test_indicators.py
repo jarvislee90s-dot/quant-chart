@@ -36,3 +36,11 @@ def test_unknown_indicator_raises():
         assert False
     except KeyError as e:
         assert "nope" in str(e)
+
+def test_vwap_zero_volume_ffill():
+    df = _df()
+    df.loc[5, "fut_volume"] = 0.0          # 零成交分钟（防御分支场景）
+    out = apply_indicators(df, [{"name": "vwap"}])
+    v = out["fut_vwap"]
+    assert v.notna().all()
+    assert abs(v.iloc[5] - v.iloc[4]) < 1e-9   # 零成交分钟沿用前值
