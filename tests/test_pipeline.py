@@ -28,3 +28,14 @@ def test_pipeline_end_to_end(tmp_path):
     png = tmp_path / "o.png"
     fig.write_image(str(png), width=1600, height=900)
     assert png.stat().st_size > 30_000
+
+def test_config_rejects_missing_excel_keys(tmp_path):
+    p = tmp_path / "c2.yaml"
+    p.write_text(yaml.dump({"input": {"mode": "excel",
+                                      "excel": {"future": "a.xlsx"}},
+                            "strategy": "basis_review"}), encoding="utf-8")
+    try:
+        load_config(str(p))
+        assert False
+    except ConfigError as e:
+        assert "index" in str(e)
