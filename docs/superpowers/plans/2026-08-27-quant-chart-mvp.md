@@ -237,7 +237,7 @@ git add src/quantchart/core tests/test_session.py && git commit -m "feat(core): 
 - Create: `tests/make_fixtures.py`
 - Test: `tests/test_excel_wind.py`
 
-- [ ] **Step 1: 写夹具生成器（合成 2 日 Wind 格式 xlsx）**
+- [x] **Step 1: 写夹具生成器（合成 2 日 Wind 格式 xlsx）**
 
 ```python
 # tests/make_fixtures.py —— 生成与 Wind 导出同构的小样本两表
@@ -272,7 +272,7 @@ if __name__ == "__main__":
 Run: `python tests/make_fixtures.py`
 Expected: `fixtures written: ... tests/fixtures`
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
 ```python
 # tests/test_excel_wind.py
@@ -300,12 +300,12 @@ def test_footnote_text():
     assert "Wind Excel" in rep.footnote() and "484" in rep.footnote()
 ```
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 Run: `pytest tests/test_excel_wind.py -q`
 Expected: FAIL `ModuleNotFoundError: quantchart.adapters.excel_wind`
 
-- [ ] **Step 4: 实现 excel_wind.py**
+- [x] **Step 4: 实现 excel_wind.py**
 
 ```python
 """Wind 导出分钟表适配器：期货+指数两表 → 规范宽表 + 质量报告。"""
@@ -368,12 +368,12 @@ def load_wind_pair(future_xlsx: str, index_xlsx: str,
     return df, QualityReport("Wind Excel", len(days), len(grid), ff, fi)
 ```
 
-- [ ] **Step 5: 跑测试通过**
+- [x] **Step 5: 跑测试通过**
 
 Run: `pytest tests/test_excel_wind.py -q`
 Expected: `3 passed`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/quantchart/adapters tests/test_excel_wind.py tests/make_fixtures.py tests/fixtures/.gitkeep 2>/dev/null; \
