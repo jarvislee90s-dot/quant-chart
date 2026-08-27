@@ -9,7 +9,8 @@ YAML 驱动的行情图工作流：Wind Excel / API → 指标 → 信号 → Pl
 
 ## 配置三层
 
-- `input`：数据（excel 两表 / auto API优先降级；range 为分析区间）
+- `input`：数据（excel 两表为主通道；`auto` API优先降级属二期，本期明确要求 excel；
+  range 为分析区间）
 - `strategy` + `params`：计算插件（basis_review / basis_zones）
 - `panels.layers`：视觉原语（line/area/zone/hline/events/leader_tag/day_seps/day_labels），
   覆盖插件默认面板；zone/hline 等注释原语任何策略可用

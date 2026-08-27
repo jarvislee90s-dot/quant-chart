@@ -15,14 +15,16 @@ def test_fetch_maps_to_fut_columns(monkeypatch):
     df = fetch_sina_minute("IM2612")
     assert "fut_close" in df.columns and "fut_amount" not in df.columns
 
-def test_auto_needs_excel(monkeypatch):
-    import datetime as dtm
+def test_auto_requires_excel_without_network(monkeypatch):
     from quantchart.adapters import auto as A
-    monkeypatch.setattr(A, "fetch_sina_minute",
-                        lambda sym: parse_sina_payload(PAYLOAD))
+
+    def _boom(sym):                        # auto 不应发起任何网络请求
+        raise AssertionError("auto 模式不应发起网络请求")
+
+    monkeypatch.setattr("quantchart.adapters.api_sina._http_get", _boom)
     try:
-        auto_load({"mode": "auto", "api": {"future": "IM2612"},
-                   "range": ["2026-08-19", "2026-08-26"]})
+        A.auto_load({"mode": "auto", "api": {"future": "IM2612"},
+                     "range": ["2026-08-19", "2026-08-26"]})
         assert False
-    except NeedsExcelError as e:
+    except A.NeedsExcelError as e:
         assert "Excel" in str(e)
