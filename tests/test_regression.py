@@ -52,3 +52,17 @@ def test_render_smoke(tmp_path):
     p = tmp_path / "reg.png"
     fig.write_image(str(p), width=1600, height=900)
     assert p.stat().st_size > 100_000
+
+def test_window_diff_series():
+    # 窗口低点价差 = 现价(末日收盘) − 各窗口最低 fut_low（对应设计§7 与 leader_tag 口径）
+    from quantchart.adapters.auto import auto_load
+    from quantchart.core.session import build_slots
+    from quantchart.core.signals import window_min_events
+    df, _ = auto_load(CFG["input"])
+    slots = build_slots(df)
+    wins = [(z["from"], z["to"]) for z in CFG["params"]["zones"]]
+    evs = window_min_events(slots.df, wins, "fut_low")
+    ref = float(slots.df["fut_close"].dropna().iloc[-1])
+    got = [round(ref - e.value) for e in evs]
+    assert len(got) == len(WINDOW_DIFF), f"窗口价差个数不符: {got}"
+    assert all(abs(a - b) <= 1 for a, b in zip(got, WINDOW_DIFF)), f"窗口价差不符: {got}"
