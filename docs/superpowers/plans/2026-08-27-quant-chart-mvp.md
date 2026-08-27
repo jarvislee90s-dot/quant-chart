@@ -902,7 +902,7 @@ git add src/quantchart/render tests/test_primitives_basic.py && git commit -m "f
 - Modify: `src/quantchart/render/primitives.py`（追加）
 - Test: `tests/test_primitives_events.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -952,9 +952,9 @@ def test_day_seps_and_labels():
     assert any((a.text or "") == "08-19" for a in fig.layout.annotations)
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL（`_events` 不存在）
+- [x] **Step 2: 跑测试确认失败** → FAIL（`_events` 不存在）
 
-- [ ] **Step 3: primitives.py 追加实现**
+- [x] **Step 3: primitives.py 追加实现**
 
 ```python
 # —— 追加到 primitives.py ——
@@ -1022,9 +1022,9 @@ def _day_labels(fig, spec, ctx):
                            bgcolor="#f2f3f5", bordercolor="#d5d8dd", borderpad=3)
 ```
 
-- [ ] **Step 4: 跑测试通过** → `3 passed`
+- [x] **Step 4: 跑测试通过** → `3 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/render/primitives.py tests/test_primitives_events.py && git commit -m "feat(render): 事件标记/低点连线价差标注/日分隔/日期行原语"

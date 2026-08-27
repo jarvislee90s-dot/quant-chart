@@ -100,3 +100,66 @@ def _hline(fig, spec, ctx):
                            xanchor="left", yanchor="bottom",
                            font=dict(size=10.5, color=spec.get("color", "#55595f")),
                            bgcolor="white", opacity=.9)
+
+
+def _events(fig, spec, ctx):
+    """事件点标记：marker + 数值标签（默认画在事件所属轴）。"""
+    ax = spec.get("axis", "y2")
+    evs = spec["events"][spec["ref"]]
+    fig.add_trace(go.Scatter(
+        x=[e.pos for e in evs], y=[e.value for e in evs], yaxis=ax,
+        mode="markers", showlegend=False, hoverinfo="skip",
+        marker=dict(symbol=spec.get("symbol", "triangle-down"),
+                    size=spec.get("size", 8),
+                    color=spec.get("color", "#701820"),
+                    line=dict(color="white", width=.8))))
+    for e in evs:
+        fig.add_annotation(x=e.pos, y=e.value, yref=ax, text=e.label,
+                           showarrow=False, yanchor="top", yshift=-8,
+                           font=dict(size=10.5, color=spec.get("color", "#701820")),
+                           bgcolor="white", opacity=.72, borderpad=1)
+
+
+def _leader_tag(fig, spec, ctx):
+    """低点事件 → 连线至基准线 + 价差/涨幅标注（含引导线）。"""
+    evs = spec["events"][spec["ref"]]
+    ref = float(ctx.df[spec["ref_value_col"]].dropna().iloc[-1])
+    for e in evs:
+        diff = ref - e.value
+        pct = (ref / e.value - 1) * 100
+        txt = spec.get("text", "+{diff}（{pct}%）").format(
+            diff=f"{diff:.0f}", pct=f"{pct:+.1f}", value=f"{e.value:,.0f}", ref=f"{ref:,.1f}")
+        fig.add_trace(go.Scatter(x=[e.pos, e.pos], y=[e.value, ref], mode="lines",
+                                 line=dict(color="#606a75", width=1, dash="dot"),
+                                 showlegend=False, hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=[e.pos], y=[e.value], mode="markers",
+                                 marker=dict(symbol="circle-open", size=7,
+                                             color="#39414a", line=dict(width=1.1)),
+                                 showlegend=False, hoverinfo="skip"))
+        fig.add_annotation(x=e.pos, y=e.value, text=txt, showarrow=True,
+                           arrowhead=0, arrowcolor="#b3a5dd", arrowwidth=.9, standoff=6,
+                           ax=spec.get("ax", 92), ay=spec.get("ay", -120),
+                           font=dict(size=10.5, color="#8465c1"),
+                           bgcolor="white", bordercolor="#b3a5dd",
+                           borderpad=3, opacity=.95,
+                           xanchor=spec.get("xanchor", "left"))
+        fig.add_annotation(x=e.pos, y=e.value, text=f"{e.value:,.0f}",
+                           showarrow=False, yanchor="top", yshift=-7,
+                           font=dict(size=10, color="#454b52"),
+                           bgcolor="white", opacity=.75, borderpad=1)
+
+
+def _day_seps(fig, spec, ctx):
+    for p in ctx.slots.sep_center:
+        fig.add_shape(type="line", x0=p, x1=p, y0=0, y1=1,
+                      xref=ctx.xaxis, yref="paper",
+                      line=dict(color=spec.get("color", "#b3b9c2"),
+                                width=1, dash="dash"))
+
+
+def _day_labels(fig, spec, ctx):
+    for d, (s, e) in ctx.slots.day_span.items():
+        fig.add_annotation(x=(s + e) / 2, y=spec.get("y", -.108), yref="paper",
+                           text=d.strftime("%m-%d"), showarrow=False,
+                           font=dict(size=11.5),
+                           bgcolor="#f2f3f5", bordercolor="#d5d8dd", borderpad=3)

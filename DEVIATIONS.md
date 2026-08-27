@@ -55,3 +55,15 @@
 - **原因**：计划内实现与测试自相矛盾。保留实现（第 3 个 trace 是轮廓线，
   对应已验证样张的贴水描边视觉要素），修正测试断言以匹配"两个填充+一条轮廓"
   的实际结构。
+
+## Task 8 —— leader_tag 连线载体与 day_seps 单日夹具两处测试矛盾
+
+- **计划原文**：
+  ① `assert any(sh.type == "line" for sh in fig.layout.shapes)  # 连线到基准线`；
+  ② `test_day_seps_and_labels` 用单日夹具断言存在日分隔 shape
+- **实际做法**：
+  ① 改为 `assert any(t.mode == "lines" for t in fig.data)`（连线是 Scatter 点线 trace）；
+  ② 测试内自建两日夹具再断言分隔线
+- **原因**：①计划实现的连线（低点→基准线）是 `add_trace(go.Scatter(mode="lines"))`
+  而非 layout shape，测试断言查错了容器；②单日数据 `sep_center` 为空、
+  本来就没有日分隔线，断言恒假。两处均为测试侧修复，实现无偏差。
