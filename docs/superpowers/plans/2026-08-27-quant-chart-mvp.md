@@ -735,7 +735,7 @@ git add src/quantchart/adapters tests/test_api_auto.py && git commit -m "feat(ad
 - Create: `src/quantchart/render/primitives.py`
 - Test: `tests/test_primitives_basic.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -777,9 +777,9 @@ def test_zone_rect_and_hline():
     assert any("Z1" in (a.text or "") for a in fig.layout.annotations)
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL
+- [x] **Step 2: 跑测试确认失败** → FAIL
 
-- [ ] **Step 3: 实现 primitives.py（第一部分）**
+- [x] **Step 3: 实现 primitives.py（第一部分）**
 
 ```python
 """通用绘图原语 → Plotly traces/shapes/annotations 翻译。不含任何计算。"""
@@ -886,9 +886,9 @@ def _hline(fig, spec, ctx):
                            bgcolor="white", opacity=.9)
 ```
 
-- [ ] **Step 4: 跑测试通过** → `pytest tests/test_primitives_basic.py -q` → `3 passed`
+- [x] **Step 4: 跑测试通过** → `pytest tests/test_primitives_basic.py -q` → `3 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/render tests/test_primitives_basic.py && git commit -m "feat(render): 基础原语 line/area/zone/hline"

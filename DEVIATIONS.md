@@ -46,3 +46,12 @@
 - **原因**：计划文案只有小写 `excel`，与同计划内测试断言（大写 `Excel`）及设计文档
   第 6 节『明确报"需 Excel 补至 X 日"』不符。修实现文案而非放宽测试断言，
   保持用户可见错误信息包含明确的"Excel"字样。
+
+## Task 7 —— area 原语测试断言与计划自身实现矛盾
+
+- **计划原文**：测试 `assert len(fig.data) == 2 and all(t.fill == "tozeroy" for t in fig.data)`；
+  而同任务实现 `_area` 添加 3 个 trace（正填充、负填充、贴水轮廓线）
+- **实际做法**：断言改为 `len(fig.data) == 3 and all(t.fill == "tozeroy" for t in fig.data[:2])`
+- **原因**：计划内实现与测试自相矛盾。保留实现（第 3 个 trace 是轮廓线，
+  对应已验证样张的贴水描边视觉要素），修正测试断言以匹配"两个填充+一条轮廓"
+  的实际结构。
