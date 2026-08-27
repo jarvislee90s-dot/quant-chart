@@ -1038,7 +1038,7 @@ git add src/quantchart/render/primitives.py tests/test_primitives_events.py && g
 - Create: `src/quantchart/render/figure.py`
 - Test: `tests/test_figure.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 import datetime as dtm
@@ -1072,9 +1072,9 @@ def test_build_figure_axes_and_ticks():
     assert any("数据来源" in (a.text or "") for a in lay.annotations)   # 质量脚注
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL
+- [x] **Step 2: 跑测试确认失败** → FAIL
 
-- [ ] **Step 3: 实现 figure.py**
+- [x] **Step 3: 实现 figure.py**
 
 ```python
 """面板组装：槽位X轴 + 双右轴 + 标题/图例/日期行/质量脚注（布局源自已验证样张）。"""
@@ -1146,9 +1146,9 @@ def _auto_range(df, cols, pad_lo=.10, pad_hi=.16):
     return lo - span * pad_lo, hi + span * pad_hi
 ```
 
-- [ ] **Step 4: 跑测试通过** → `1 passed`
+- [x] **Step 4: 跑测试通过** → `1 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/render/figure.py tests/test_figure.py && git commit -m "feat(render): 面板组装（压缩X轴+双右轴+质量脚注）"
