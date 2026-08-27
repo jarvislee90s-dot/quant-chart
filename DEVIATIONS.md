@@ -29,3 +29,20 @@
   "含 pos 列的槽位表"。计划 Task 8 的用法 `daily_min_events(slots.df, slots, "basis")`
   及流水线向插件传 `slots.df` 均符合该契约，仅 Task 5 测试传错了原始 df，
   KeyError: 'pos'。断言数值不变（同一份数据），实现无偏差。
+
+## Task 6 —— auto 测试配置缺 input.api 段
+
+- **计划原文**：`auto_load({"mode": "auto", "range": ["2026-08-19", "2026-08-26"]})`
+- **实际做法**：补上 `"api": {"future": "IM2612"}`，即
+  `auto_load({"mode": "auto", "api": {"future": "IM2612"}, "range": [...]})`
+- **原因**：实现按设计文档 YAML 模板读取 `input.api.future`（设计文档第 4 节：
+  `api: {future: IM2612, index: "000852"}`），测试配置漏掉该段导致
+  KeyError: 'api'。补齐后与设计一致，实现无偏差（auto 模式必须有 api.future）。
+
+## Task 6 —— NeedsExcelError 文案无大写"Excel"
+
+- **计划原文**：报错文案 `……请改用 mode=excel 提供两表。`；测试断言 `"Excel" in str(e)`
+- **实际做法**：文案改为 `……请改用 mode=excel 提供两份 Excel 表。`
+- **原因**：计划文案只有小写 `excel`，与同计划内测试断言（大写 `Excel`）及设计文档
+  第 6 节『明确报"需 Excel 补至 X 日"』不符。修实现文案而非放宽测试断言，
+  保持用户可见错误信息包含明确的"Excel"字样。

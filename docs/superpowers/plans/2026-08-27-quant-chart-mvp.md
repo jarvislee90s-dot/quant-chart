@@ -597,7 +597,7 @@ git add src/quantchart/core/signals.py tests/test_signals.py && git commit -m "f
 - Create: `src/quantchart/adapters/auto.py`
 - Test: `tests/test_api_auto.py`
 
-- [ ] **Step 1: 写失败测试（解析用固化样例，不连网）**
+- [x] **Step 1: 写失败测试（解析用固化样例，不连网）**
 
 ```python
 import pandas as pd
@@ -629,9 +629,9 @@ def test_auto_needs_excel(monkeypatch):
         assert "Excel" in str(e)
 ```
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL（模块不存在）
+- [x] **Step 2: 跑测试确认失败** → FAIL（模块不存在）
 
-- [ ] **Step 3: 实现 api_sina.py 与 auto.py**
+- [x] **Step 3: 实现 api_sina.py 与 auto.py**
 
 ```python
 # src/quantchart/adapters/api_sina.py
@@ -716,11 +716,11 @@ def auto_load(input_cfg: dict) -> tuple[pd.DataFrame, QualityReport]:
     return df, rep
 ```
 
-- [ ] **Step 4: 跑测试通过**
+- [x] **Step 4: 跑测试通过**
 
 Run: `pytest tests/test_api_auto.py -q` → `3 passed`（测试用 monkeypatch，不连网）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/quantchart/adapters tests/test_api_auto.py && git commit -m "feat(adapters): 新浪分钟解析 + auto降级（覆盖不足明确报需Excel）"
