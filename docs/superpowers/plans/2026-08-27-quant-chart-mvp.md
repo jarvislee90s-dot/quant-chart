@@ -1508,7 +1508,7 @@ git add src/quantchart/core/config.py src/quantchart/core/pipeline.py tests/test
 - Create: `README.md`
 - Modify: `.gitignore`（追加 `tests/fixtures/*.xlsx`）
 
-- [ ] **Step 1: 写 CLI**
+- [x] **Step 1: 写 CLI**
 
 ```python
 # src/quantchart/cli.py
@@ -1545,7 +1545,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: 写两份预设 YAML**
+- [x] **Step 2: 写两份预设 YAML**
 
 两文件共用 `input` 段：
 
@@ -1579,7 +1579,7 @@ title: "IM2612 合约行情与中证1000贴水 · 击球区标注（2026.08.17�
 
 **修改 cli.py 第19行**：`fig, rep = run_pipeline(cfg, title=title or cfg.get("title", ""))`
 
-- [ ] **Step 3: 写回归基准测试**
+- [x] **Step 3: 写回归基准测试**
 
 ```python
 # tests/test_regression.py —— 对真实 Wind 数据断言已知结果（V1/V2 验证值）
@@ -1638,7 +1638,7 @@ def test_render_smoke(tmp_path):
     assert p.stat().st_size > 100_000
 ```
 
-- [ ] **Step 4: 写 README.md**
+- [x] **Step 4: 写 README.md**
 
 ```markdown
 # quant-chart
@@ -1668,7 +1668,7 @@ YAML 驱动的行情图工作流：Wind Excel / API → 指标 → 信号 → Pl
     pytest tests/test_regression.py -q   # 真实数据回归（需 QUANT_CHART_TEST_DATA）
 ```
 
-- [ ] **Step 5: 端到端验收**
+- [x] **Step 5: 端到端验收**
 
 Run:
 ```bash
@@ -1677,7 +1677,7 @@ chartflow run configs/basis_zones.yaml -o outputs/basis_zones.png --html outputs
 ```
 Expected: 全部测试通过；PNG >100KB；目测与 Backset V2 图要素一致（击球区/触发线/现价线/低点连线/价差标注/日期行）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A && git commit -m "feat: CLI + 预设配置 + 回归基准 + README（MVP完成）"

@@ -78,3 +78,22 @@
   测试一处写成了 `.run` 方法调用，与其余两处矛盾。按流水线的调用约定
   （注册值为可调用对象）修测试，实现无偏差。Task 11 测试存在同一问题
   （`get_strategy("basis_zones").run(...)`），按同口径修正。
+
+## Task 13 —— 回归测试复算时在无 pos 列的表上算指标
+
+- **计划原文**：`df = apply_indicators(df, [{"name": "basis"}])` 后
+  `daily_min_events(df, slots, "basis")`（df 为 auto_load 原始宽表）
+- **实际做法**：改为 `df = apply_indicators(slots.df, [{"name": "basis"}])`
+- **原因**：与 Task 5 记录的同一契约问题——信号函数要求输入含 pos 列。
+  auto_load 返回的规范宽表无 pos 列，须基于 `slots.df` 加指标列。
+  断言数值不变，实现无偏差。另：计划的 `WINDOW_DIFF` 常量在测试代码中
+  仅作核对值列出、无对应断言，按计划原文保留。
+
+## Task 13 —— CLI 不自建输出目录
+
+- **计划原文**：CLI 直接 `fig.write_image(output, ...)`；验收命令
+  `chartflow run ... -o outputs/basis_zones.png`（outputs/ 不存在时 FileNotFoundError）
+- **实际做法**：CLI 写 PNG/HTML 前调用 `_ensure_parent()` 确保父目录存在
+- **原因**：单测用 pytest `tmp_path` 掩盖了该问题；验收命令按计划原文
+  首次执行即失败。输出目录自建属于命令行工具的常规行为，属最小修复，
+  不改变任何设计接口。

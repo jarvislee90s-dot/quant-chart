@@ -1,0 +1,8 @@
+input:
+  mode: excel
+  excel:
+    future: E:/LLMproject/PersonalAffairs/Backset/IM2612.CFE原始.xlsx
+    index:  E:/LLMproject/PersonalAffairs/Backset/000852.SH.xlsx
+  range: [2026-08-17, 2026-08-27]
+strategy: basis_review
+title: "IM2612 合约行情与中证1000贴水（2026.08.17–08.27）"
