@@ -2,10 +2,12 @@
 import pandas as pd
 
 from ..adapters.auto import auto_load
+from ..adapters.daily import load_daily
 from ..render.figure import build_figure
+from ..render.figure_daily import build_daily_figure
 from .plugins import get_strategy, load_plugins
 from .position import expand_trades
-from .session import build_slots
+from .session import build_daily_slots, build_slots
 
 
 def _wire_events(layers: list, events: list) -> list:
@@ -29,6 +31,8 @@ def merge_panels(default_panels: list, user_panels: list,
 
 
 def run_pipeline(cfg: dict, title: str = "", row_heights: list | None = None) -> tuple:
+    if str(cfg["input"].get("mode", "excel")).startswith("daily"):
+        return run_daily_pipeline(cfg, title=title)
     df, rep = auto_load(cfg["input"])
     slots = build_slots(df)
     load_plugins()
@@ -57,4 +61,22 @@ def run_pipeline(cfg: dict, title: str = "", row_heights: list | None = None) ->
     if not title:
         title = f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}–{cfg['input'].get('range', ['',''])[1]}）"
     fig = build_figure(out.df, slots, panels, rep, title=title, row_heights=row_heights)
+    return fig, rep
+
+
+def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
+    """日线旁路：daily_* 通道 → 日线槽位 → 插件 → 深色主题组装（单面板）。"""
+    if cfg.get("trades") or cfg.get("trades_csv"):
+        raise ValueError("日线模式暂不支持 trades/trades_csv 交易明细（接口保留，日线口径后续适配）")
+    df, rep = load_daily(cfg["input"])
+    slots = build_daily_slots(df)
+    load_plugins()
+    out = get_strategy(cfg["strategy"])(slots.df, slots, **cfg.get("params", {}))
+    panels = merge_panels(out.panels, cfg.get("panels"), cfg.get("extra_panels"))
+    panels = [{**p, "layers": _wire_events(p.get("layers", []), out.events)}
+              for p in panels]
+    if not title:
+        title = (f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}"
+                 f"–{cfg['input'].get('range', ['',''])[1]}）")
+    fig = build_daily_figure(out.df, slots, panels, rep, title=title)
     return fig, rep

@@ -16,23 +16,33 @@ def load_config(path: str) -> dict:
     if not isinstance(inp, dict):
         raise ConfigError("input 必须是键值映射")
     mode = inp.get("mode", "excel")
-    if mode in ("excel", "auto"):
-        excel = inp.get("excel")
-        for key in ("future", "index"):
-            if not isinstance(excel, dict) or not excel.get(key):
-                raise ConfigError(
-                    f"input.mode={mode} 需要 input.excel.future 与 input.excel.index "
-                    f"两表路径（缺失: input.excel.{key}）")
-    if mode in ("api", "auto"):
-        api = inp.get("api")
-        for key in ("future", "index"):
-            if not isinstance(api, dict) or not api.get(key):
-                raise ConfigError(
-                    f"input.mode={mode} 需要 input.api.future 与 input.api.index "
-                    f"两个代码（缺失: input.api.{key}）")
+    if isinstance(mode, str) and mode.startswith("daily"):
+        if mode == "daily_csv" and not inp.get("csv"):
+            raise ConfigError("input.mode=daily_csv 需要 input.csv（日线CSV路径）")
+        if mode == "daily_api" and not (isinstance(inp.get("api"), dict)
+                                        and inp["api"].get("symbol")):
+            raise ConfigError("input.mode=daily_api 需要 input.api.symbol（如 IM0/CU0/TL0）")
         rng = inp.get("range")
         if not (isinstance(rng, list) and len(rng) == 2):
-            raise ConfigError(f"input.mode={mode} 需要 input.range（起止日期，分钟深度校验用）")
+            raise ConfigError(f"input.mode={mode} 需要 input.range（起止日期，闭区间）")
+    else:
+        if mode in ("excel", "auto"):
+            excel = inp.get("excel")
+            for key in ("future", "index"):
+                if not isinstance(excel, dict) or not excel.get(key):
+                    raise ConfigError(
+                        f"input.mode={mode} 需要 input.excel.future 与 input.excel.index "
+                        f"两表路径（缺失: input.excel.{key}）")
+        if mode in ("api", "auto"):
+            api = inp.get("api")
+            for key in ("future", "index"):
+                if not isinstance(api, dict) or not api.get(key):
+                    raise ConfigError(
+                        f"input.mode={mode} 需要 input.api.future 与 input.api.index "
+                        f"两个代码（缺失: input.api.{key}）")
+            rng = inp.get("range")
+            if not (isinstance(rng, list) and len(rng) == 2):
+                raise ConfigError(f"input.mode={mode} 需要 input.range（起止日期，分钟深度校验用）")
     if not isinstance(cfg.get("params", {}), dict):
         raise ConfigError("params 必须是键值映射")
     if not isinstance(cfg.get("panels", []), list):
