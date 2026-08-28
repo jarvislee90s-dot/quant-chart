@@ -303,3 +303,36 @@ mode:auto 覆盖不足整体回退 Excel（source 标注降级）。
 - README 更新：mode 三态说明、4.2 节改写为"已交付"、报错表与速查表同步、目录树注释
 - 测试琐碎清理：setitem 注释纠正、死变量清除、leader_tag annotation 轴绑定补断言
 - P2 #11（中文列名容错）改判**不做**：契约基线锁定英文列名，风险归零（见下）
+
+## 日线阶段（2026-08-28，feat/daily-candle 分支）偏差记录
+
+> 控制方裁决：「既有测试零改动」约束指分支前既有测试；本分支新增的
+> tests/test_daily_primitives.py 两处断言（`#e0524d`/`#2fc4c4` 字面量）随本裁决
+> 同步改为对齐 `theme.DARK["up"]/["down"]` 常量。
+
+### 日线 1 —— _arrow 把 textposition 传给了 add_annotation
+
+- **计划原文**：plan 代码把 Scatter 的 textposition 参数传给 add_annotation
+- **实际做法**：改为 9 项 xanchor/yanchor 等价映射；text_position 配置键与
+  "middle right" 缺省保留
+- **原因**：Plotly 7.0 注解无 textposition 属性，逐次 ValueError。
+  九宫格锚点映射与 Scatter textposition 语义等价。
+
+### 日线 2 —— figure_daily 的 Ctx 用 slots.df 而非 df
+
+- **计划原文**：brief 代码 `Ctx(df=df)`（原始规范宽表）
+- **实际做法**：改为 `Ctx(df=slots.df)`
+- **原因**：build_daily_slots 在副本上加 pos 列，蜡烛原语读 `ctx.df["pos"]`，
+  传原始 df 会 KeyError: 'pos'；管线保证 out.df 与 slots.df 为同一对象。
+
+### 日线 3 —— _zone 增加 dash/opacity 透传键
+
+- **计划原文**：_zone 边线线型与填充透明度为写死的既有限制，无配置键
+- **实际做法**：增加 dash/opacity 透传键，缺省 "dash"/0.32 与原行为逐像素不变
+- **原因**：参考图"红实线框"需要实线+淡填充，YAML 无法从既有限制下表达。
+
+### 日线 4 —— _normalize 表头 strip 重命名方向写反
+
+- **计划原文**：dict 推导做 stripped→original 的重命名映射
+- **实际做法**：改为 `rename(columns=lambda c: str(c).strip())`，并补空白表头回归测试
+- **原因**：计划推导方向写反（stripped→original 永不命中），带空白表头不会被清洗。

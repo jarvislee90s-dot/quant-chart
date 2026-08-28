@@ -24,7 +24,7 @@ def _normalize(raw: pd.DataFrame, start, end, source: str):
     missing = [c for c in KEEP if c not in df.columns]
     if missing:
         raise ValueError(f"{source} 缺少必需列: {missing}"
-                         f"（需含 datetime/date 与 open/high/low/close[/volume]）")
+                         f"（需含 datetime/date 与 open/high/low/close/volume）")
     df["datetime"] = pd.to_datetime(df["datetime"])
     df = df.dropna(subset=["datetime", "close"]).sort_values("datetime")
     if df["datetime"].duplicated().any():

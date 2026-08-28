@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from quantchart.render.primitives import Ctx, draw
+from quantchart.render.theme import DARK
 
 
 def _ctx():
@@ -19,8 +20,8 @@ def test_candle_trace_and_colors():
     draw(fig, {"type": "candle"}, _ctx())
     tr = fig.data[0]
     assert tr.type == "candlestick"
-    assert tr.increasing.line.color == "#e0524d"
-    assert tr.decreasing.line.color == "#2fc4c4"
+    assert tr.increasing.line.color == DARK["up"]
+    assert tr.decreasing.line.color == DARK["down"]
     assert tr.showlegend is False
 
 

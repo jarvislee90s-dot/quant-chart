@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import pandas as pd
 import plotly.graph_objects as go
 
+from .theme import DARK
+
 
 @dataclass
 class Ctx:
@@ -196,8 +198,8 @@ def _candle(fig, spec, ctx):
         low=ctx.df[spec.get("low", "low")],
         close=ctx.df[spec.get("close", "close")],
         yaxis=yax,
-        increasing=dict(line=dict(color=spec.get("up", "#e0524d"), width=1)),
-        decreasing=dict(line=dict(color=spec.get("down", "#2fc4c4"), width=1)),
+        increasing=dict(line=dict(color=spec.get("up", DARK["up"]), width=1)),
+        decreasing=dict(line=dict(color=spec.get("down", DARK["down"]), width=1)),
         name=spec.get("name", "K线"), showlegend=False))
 
 
