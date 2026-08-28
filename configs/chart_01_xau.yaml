@@ -1,0 +1,61 @@
+# 01 伦敦金现货（XAU 日线）——reference/01 同款复刻
+# 读图规范三步执行记录（zoom 证据见 out/refs/chart_01/，坐标标定基于 y 轴 3100@1054px / 5600@30px）：
+#   4841.255  顶线/顶药丸：zoom_pill_top_8x.png 8x 放大逐字确认；落在数据区间 [3436.99×0.95, 5596.33×1.05] ✓
+#   4384.642  中线/中药丸：zoom_pill_mid_8x.png 8x 放大确认为 4384（非任务书暂记的 4334——位阶第三位是 8）；
+#             交叉验证 4841.255−4384.642=456.6、4384.642−3928.818=455.8，与样张"区间价差455USD"吻合 ✓
+#   3928.818  底线/底药丸：zoom_pill_bot_8x.png 8x 放大确认 ✓
+#   5598.750  历史高点价签：zoom_high_tag.png 放大确认（红字+灰白小箭头指向 26-01 峰值）；
+#             本批 akshare 数据峰值为 5596.33（2026-01-29），快照差 2.42（0.04%）——按读图规范第 3 条原报告数值优先，保留 5598.750
+#   区间价差455USD ×2：zoom_spread_right_wide/left_wide.png 放大确认为 455（整图缩略易误读成 555）；
+#             与箭头两端差交叉验证：456.6/455.8 均在 455±2 内 ✓
+#   通道：上轨自 26-01-29 峰值 5598 引出、下轨向左上延伸出画布（dash_highlight.png 像素描迹），
+#             黄绿虚线色 #67c805（取样 #67ca05/#6ed803），标签亮绿 #01f501
+input:
+  mode: daily_csv
+  csv: data/xau_daily.csv
+  range: [2025-09-01, 2026-08-28]
+strategy: daily_candle
+title: "伦敦金现货 · 日线策略同款复刻"
+params:
+  ma: [5, 10, 20, 30, 60]          # 日线图 MA=字面 5/10/20/30/60 根（工作日语义）
+  channels:
+    # —— 周线级别下降通道：窗口=峰值 2026-01-29 → 图末 2026-08-28，fit_channel 自动拟合
+    #    （上轨恰被 26-01-29 峰值 5596.33 压住、下轨贴 26-03-23 低点 4099.02，coverage=1.000，对应样张自峰值引出的下降通道）
+    - start: "2026-01-29"
+      end: "2026-08-28"
+      tilt: 0.12
+      press: 1.0
+      color: "#67c805"             # 样张黄绿虚线取样
+      dash: dash
+      line_width: 1.2
+  annotations:
+    # —— 三条水平线 + 右缘药丸（值=读图确认；线色与药丸同色系成对，取样药丸底色） ——
+    - {type: hline, value: 4841.255, color: "#ff8888", width: 1.2, dash: solid, axis: y}
+    - {type: hline, value: 4384.642, color: "#fe9b00", width: 1.2, dash: solid, axis: y}
+    - {type: hline, value: 3928.818, color: "#3d94a8", width: 1.2, dash: solid, axis: y}
+    - {type: tag, value: 4841.255, text: "4841.255", color: "#ff8888", text_color: "#ffffff"}
+    - {type: tag, value: 4384.642, text: "4384.642", color: "#fe9b00", text_color: "#ffffff"}
+    - {type: tag, value: 3928.818, text: "3928.818", color: "#3d94a8", text_color: "#ffffff"}
+    # —— 多空分界（样张：黄字"多空分界线"+红↑在线上方、绿↓在线下方；zoom_duokong.png） ——
+    - {type: text, at: ["2026-04-20", 4413], text: 多空分界线, size: 14, color: "#e8c832"}
+    - {type: arrow, from: ["2026-04-07", 4404], to: ["2026-04-07", 4438], color: "#e02020", width: 2.2}
+    - {type: arrow, from: ["2026-04-07", 4360], to: ["2026-04-07", 4330], color: "#3f9d68", width: 2.2}
+    # —— 区间价差：红竖箭头×2（箭头两端=相邻两条水平线，差 456.6/455.8≈455±2）+ 蓝字×2（zoom 确认 455 非 555） ——
+    - {type: arrow, from: ["2026-05-05", 3928.818], to: ["2026-05-05", 4384.642], color: "#cc0607", width: 3.2}
+    - {type: arrow, from: ["2026-07-01", 4384.642], to: ["2026-07-01", 4841.255], color: "#cc0607", width: 3.2}
+    - {type: text, at: ["2026-05-15", 4020], text: "区间价差455USD", size: 12, color: "#0f85c2"}
+    - {type: text, at: ["2026-07-16", 4740], text: "区间价差455USD", size: 12, color: "#0f85c2"}
+    # —— BULL（红字+红↑指向顶线）/ BEAR（黄绿字+绿↓指向中线），整体位于最后K线(257根)右侧预测区 ——
+    - {type: text, at: [260.0, 4780], text: BULL, size: 18, color: "#f04a4a"}
+    - {type: text, at: [260.0, 4490], text: BEAR, size: 18, color: "#84b60a"}
+    - {type: arrow, from: [257.4, 4560], to: [258.6, 4740], color: "#f04a4a", width: 3.0}
+    - {type: arrow, from: [257.4, 4610], to: [258.4, 4412], color: "#6fc80a", width: 3.0}
+    # —— 品种大字（纯红 #f90000，样张位于 26-03 下部空白区，不压 K 线密集区） ——
+    - {type: text, at: ["2026-03-27", 3960], text: 伦敦金现货, size: 26, color: "#f90000"}
+    # —— 白色上升趋势线（样张可见要素、任务书 L1 清单外补充：自 26-02 下部空白区升穿右缘） ——
+    - {type: trendline, from: ["2026-02-20", 3790], to: [259.5, 4950], color: "#c9cdd4", width: 1.1}
+    # —— 历史高点价签（红字 5598.750 + 灰白小箭头指向 26-01-29 峰值K线上方；文字在峰左上，同样张） ——
+    - {type: arrow, from: ["2026-01-26", 5606], to: ["2026-01-29", 5599], color: "#9aa0a6", width: 1.2,
+       text: "5598.750", text_color: "#f52630", text_size: 15, text_position: "top left"}
+    # —— 通道标签（亮绿大字，样张位于通道上轨中段上方；插件不透传 label_color，故用 text 原语放置） ——
+    - {type: text, at: ["2026-04-23", 5180], text: 周线级别下降通道, size: 20, color: "#05f005"}
