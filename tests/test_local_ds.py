@@ -64,7 +64,11 @@ def test_coverage_gap_translated(monkeypatch, tmp_path):
     assert "补数" in str(e.value)
 
 def test_not_installed(monkeypatch):
-    monkeypatch.setitem(sys.modules, "local_datasource", None)      # 强制 ImportError
+    # None 哨兵强制 ImportError；须级联置 None 全部已缓存子模块——
+    # 全量回归时 integration 测试会真装真库，子模块留存 sys.modules
+    # 会让 import_module 直接命中缓存、绕过顶层哨兵
+    for k in [k for k in sys.modules if k.startswith("local_datasource")]:
+        monkeypatch.setitem(sys.modules, k, None)
     with pytest.raises(LocalDsNotInstalled) as e:
         load_via_local_ds(CFG)
     assert "mode: excel" in str(e.value)

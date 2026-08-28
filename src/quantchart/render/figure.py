@@ -85,6 +85,10 @@ def _remap_axes(layers: list[dict], overlay_y2: str, overlay_y3: str,
             s["axis"] = overlay_y3
         elif "axis" not in s and default_axis and s.get("type") in ("area", "events", "hline"):
             s["axis"] = default_axis
+        elif s.get("axis") == "y" and default_axis:
+            # 配置里 axis: "y" 意为"本面板主轴"（如仓位面板的 0 基准线），
+            # 非面板0 时需换成本面板实际主轴名，避免落到全局 y 轴/被 _hline 拒绝
+            s["axis"] = default_axis
         out.append(s)
     return out
 
@@ -95,10 +99,12 @@ def _build_multi(df, slots, panels, rep, title, row_heights):
     fig = make_subplots(rows=n, cols=1, shared_xaxes=True, row_heights=heights)
     ov2, ov3 = f"y{n + 1}", f"y{n + 2}"
     for i, panel in enumerate(panels, start=1):
-        yax = f"y{i}"
+        # plotly 主轴（第1行）引用名固定为 x/y（无编号）；y1/x1 不是合法轴引用
+        xax = "x" if i == 1 else f"x{i}"
+        yax = "y" if i == 1 else f"y{i}"
         layers = _remap_axes(panel.get("layers", []), ov2, ov3,
                              default_axis=(None if i == 1 else yax))
-        ctx = Ctx(slots=slots, df=df, xaxis=f"x{i}", yaxis=yax)
+        ctx = Ctx(slots=slots, df=df, xaxis=xax, yaxis=yax)
         for spec in layers:
             draw(fig, spec, ctx)
 

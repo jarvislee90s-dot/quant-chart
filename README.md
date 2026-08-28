@@ -114,6 +114,9 @@ cp configs/basis_zones.yaml my/first.yaml
 | `params.zones[].from / to` | zones 用 | 击球区起止时间 `"YYYY-MM-DD HH:MM"`，**必须落在数据区间内的交易时段** | `"2026-08-19 11:30"` |
 | `params.zones[].price` | zones 用 | 击球区价格带 `[下沿, 上沿]`（点） | `[7200, 7300]` |
 | `params.zones[].label` | zones 用 | 击球区标签文字，显示在框内底部 | `"击球区Ⅰ"` |
+| `trades` / `trades_csv` | 否 | 手填交易明细列表（或 CSV 路径，二选一）。每条 `{time, action, lots, price?}`，action ∈ buy/sell/close，close 的 lots 写 `all`；缺 price 用该分钟收盘价。配置后自动在主图标注买卖点（买▲红/卖▼绿/平×灰）并在数据中生成仓位 | `[{time: "2026-08-21 09:39", action: buy, lots: 1}]` |
+| `contract_mult` | 否 | 合约乘数，用于 `position_value`（手数×乘数×价） | `200` |
+| `extra_panels` | 否 | 在默认面板后**追加**面板（`panels` 是整体替换，两者可并用）。可选键 `y_title`（轴标题）、`range_cols`（按哪些列定 Y 轴范围） | 见 `configs/basis_zones_position.yaml` 仓位面板 |
 
 ### Step 3：一条命令出图
 
@@ -158,6 +161,7 @@ HTML -> out.html
 | ⑧ | 低点连线+价差标注（紫） | 击球区窗口内各交易日最低价，虚线连到现价线，标注“距末日收盘价 +价差（+涨幅%）” | `params.zones` |
 | ⑨ | 日期行 | 每个交易日的日期，置于时间刻度下方独立一行 | 引擎自动 |
 | ⑩ | 右侧双轴 | 贴水（点）与贴水率（%） | 引擎自动 |
+| ⑪ | 仓位阶梯线（下面板）与买卖点标记 | 下面板净持仓阶梯（0→1→2→0，hv 阶梯）；主图买▲红/卖▼绿/平×灰标在成交分钟 | 顶层 `trades` + `extra_panels`（示例 `configs/basis_zones_position.yaml`） |
 
 X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨日间隙自动压缩、跨日不连线。
 
@@ -178,18 +182,9 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 
 因此 **Wind 导出 Excel 是分钟级数据的唯一可靠主通道**，深度不限、离线可用。
 
-### 4.2 二期：混合分层接入 API
+### 4.2 二期：统一走 local-datasource（契约 v1.1）
 
-```mermaid
-flowchart LR
-    E["Wind Excel 两表<br/>分钟级主通道（本期）"] --> Q["quant-chart<br/>适配层"]
-    M["新浪期货分钟 API<br/>仅约4个交易日<br/>直调（api_sina.py 已有雏形）"] -.二期.-> Q
-    D["日线 API<br/>经 local-datasource 复用<br/>（无期货分钟接口，故只承担日线）"] -.二期.-> Q
-```
-
-- **分钟级·新浪直调**：仓库内 `adapters/api_sina.py` 已有解析雏形，二期接入 `auto` 模式（API 优先、覆盖不足明确提示补 Excel，绝不静默降级）。
-- **日线级·经 [local-datasource](https://github.com/jarvislee90s-dot/local-datasource) 复用**：本机 MCP 数据服务仓，强项在日线与多品种；quant-chart 不直接依赖它做分钟（它没有期货分钟接口——这正是分层的原因）。
-- 本期 `mode: auto` / `mode: api` 会直接报错并提示改用 `excel`。
+分钟/日线统一经 [local-datasource](https://github.com/jarvislee90s-dot/local-datasource) 接入（CSV 读回形态，消费契约 v1.1）：本期 `mode` 新增 `auto`/`api`——`api` 只走 local-datasource，覆盖不足时明确报"从 Wind 导出 Excel 补数"指引；`auto` 在覆盖不足且配置了 Excel 时**整体**降级改用 Excel（图脚注标注降级来源，不静默、不做区间拼接）。Excel 用于补 API 覆盖不到的历史区间，仍是深度不限的可靠主通道。
 
 ---
 
@@ -204,6 +199,7 @@ flowchart LR
 | 不要击球区，只看行情+贴水 | `strategy: basis_review`，删掉 `params` 段 |
 | 改贴水触发线 | `params.trigger` |
 | 只改标题 | `title` 或命令行 `--title` |
+| 想看自己的仓位 | 顶层写 `trades` + `extra_panels` 仓位面板（完整示例 `configs/basis_zones_position.yaml`） |
 
 ## 六、常见报错排查
 

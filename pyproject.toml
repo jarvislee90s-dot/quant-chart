@@ -24,5 +24,8 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 chartflow = "quantchart.cli:main"
 
+[tool.pytest.ini_options]
+markers = ["integration_localds: 需已安装 local-datasource 且连网（联调批用）"]
+
 [tool.setuptools.packages.find]
 where = ["src"]

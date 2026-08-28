@@ -1,0 +1,25 @@
+input:
+  mode: excel
+  excel:
+    future: E:/LLMproject/PersonalAffairs/Backset/IM2612.CFE原始.xlsx
+    index:  E:/LLMproject/PersonalAffairs/Backset/000852.SH.xlsx
+  range: [2026-08-17, 2026-08-27]
+strategy: basis_zones
+params:
+  trigger: 250
+  zones:
+    - {from: "2026-08-19 11:30", to: "2026-08-21 11:00", price: [7200, 7300], label: "击球区Ⅰ · 买入观察"}
+    - {from: "2026-08-24 11:30", to: "2026-08-25 11:30", price: [7050, 7150], label: "击球区Ⅱ · 买入观察"}
+contract_mult: 200
+trades:
+  - {time: "2026-08-21 09:39", action: buy, lots: 1}
+  - {time: "2026-08-25 09:46", action: buy, lots: 1}
+  - {time: "2026-08-27 14:30", action: close, lots: all}
+extra_panels:
+  - title: 仓位
+    y_title: 仓位（手）
+    range_cols: [position_lots]
+    layers:
+      - {type: hline, value: 0, axis: y, color: "#99a0aa", width: 0.8, dash: solid}
+      - {type: line, col: position_lots, shape: hv, color: "#1c4e9d", width: 1.8, name: "净持仓（手）"}
+title: "IM2612 行情与贴水 · 击球区 + 手填仓位（2026.08.17–08.27）"
