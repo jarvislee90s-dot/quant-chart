@@ -1,30 +1,48 @@
+# tests/test_api_auto.py —— 全量替换为：
+import sys, types
 import pandas as pd
-from quantchart.adapters.api_sina import parse_sina_payload, fetch_sina_minute
+import pytest
+
 from quantchart.adapters.auto import auto_load, NeedsExcelError
 
-PAYLOAD = ('var t=(["2026-08-26 09:30:00,7400.0,7410.0,7395.0,7405.0,100,130000",'
-           '"2026-08-26 09:31:00,7405.0,7408.0,7401.0,7403.0,80,130080"])')
 
-def test_parse_sina():
-    df = parse_sina_payload(PAYLOAD)
-    assert list(df.columns) == ["datetime", "open", "high", "low", "close", "volume", "hold"]
-    assert len(df) == 2 and df["close"].iloc[1] == 7403.0
+def _fake_with_gap(monkeypatch, tmp_path, cov_start="2026-08-25"):
+    from tests.test_local_ds import _install_fake
+    _install_fake(monkeypatch, tmp_path, cov_start=cov_start)
 
-def test_fetch_maps_to_fut_columns(monkeypatch):
-    monkeypatch.setattr("quantchart.adapters.api_sina._http_get", lambda sym: PAYLOAD)
-    df = fetch_sina_minute("IM2612")
-    assert "fut_close" in df.columns and "fut_amount" not in df.columns
 
-def test_auto_requires_excel_without_network(monkeypatch):
-    from quantchart.adapters import auto as A
+def test_api_mode_gap_raises_with_hint(monkeypatch, tmp_path):
+    _fake_with_gap(monkeypatch, tmp_path)
+    cfg = {"mode": "api", "api": {"future": "IM2612", "index": "000852"},
+           "range": ["2026-08-17", "2026-08-27"]}
+    with pytest.raises(NeedsExcelError) as e:
+        auto_load(cfg)
+    assert "2026-08-25" in str(e.value) and "补数" in str(e.value)
 
-    def _boom(sym):                        # auto 不应发起任何网络请求
-        raise AssertionError("auto 模式不应发起网络请求")
 
-    monkeypatch.setattr("quantchart.adapters.api_sina._http_get", _boom)
-    try:
-        A.auto_load({"mode": "auto", "api": {"future": "IM2612"},
-                     "range": ["2026-08-19", "2026-08-26"]})
-        assert False
-    except A.NeedsExcelError as e:
-        assert "Excel" in str(e)
+def test_auto_mode_falls_back_to_excel(monkeypatch, tmp_path):
+    _fake_with_gap(monkeypatch, tmp_path)
+    cfg = {"mode": "auto", "api": {"future": "IM2612", "index": "000852"},
+           "excel": {"future": "tests/fixtures/fut.xlsx",
+                     "index": "tests/fixtures/idx.xlsx"},
+           "range": ["2026-08-17", "2026-08-27"]}
+    df, rep = auto_load(cfg)
+    assert "Excel" in rep.source and "2026-08-25" in rep.source   # 标注降级来源
+
+
+def test_auto_mode_no_excel_hint(monkeypatch, tmp_path):
+    _fake_with_gap(monkeypatch, tmp_path)
+    cfg = {"mode": "auto", "api": {"future": "IM2612", "index": "000852"},
+           "range": ["2026-08-17", "2026-08-27"]}
+    with pytest.raises(NeedsExcelError) as e:
+        auto_load(cfg)
+    assert "input.excel" in str(e.value)
+
+
+def test_auto_mode_api_ok(monkeypatch, tmp_path):
+    from tests.test_local_ds import _install_fake
+    _install_fake(monkeypatch, tmp_path)                      # 无 gap
+    cfg = {"mode": "auto", "api": {"future": "IM2612", "index": "000852"},
+           "range": ["2026-08-25", "2026-08-27"]}
+    df, rep = auto_load(cfg)
+    assert rep.source == "local-datasource"
