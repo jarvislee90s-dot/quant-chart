@@ -35,3 +35,13 @@ def align_pair(fut: pd.DataFrame, idx: pd.DataFrame, source: str):
     ia, fi = aligned(idx, grid, "idx")
     df = pd.concat([pd.Series(grid, name="datetime"), fa, ia], axis=1)
     return df, QualityReport(source, len(days), len(grid), ff, fi)
+
+
+@dataclass
+class DailyQualityReport:
+    source: str
+    days: int
+    rows: int
+
+    def footnote(self) -> str:
+        return f"数据来源:{self.source}；交易日{self.days}天。"
