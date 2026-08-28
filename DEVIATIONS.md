@@ -159,6 +159,11 @@
 7. `run_pipeline` 标题回退对单元素 `range` 会 IndexError（`[0]–[1]` 取值）。
 8. 设计 §5 "插件接口启动校验（签名校验、错误定位到插件文件）"未实现。
 9. ~~`_days_needed` 把节假日当交易日~~——已随 P1-4 移除该函数而消解。
+10. `_wire_events` 的 `trade_exec` 前缀聚合用 `startswith`：若未来出现
+    `trade_exec_xxx` 等撞名 kind 会被误聚合（现库无此 kind，潜伏）。改为精确匹配需同时
+    保留 `ref="trade_exec"` 的前缀聚合语义，联调批再定。
+11. spec §3.1 承诺的"中文列名容错"未实现（对方按契约 v1.1/基线 98cd3bd 返回英文列名，
+    现网不可达）：中文列表会 KeyError 而非映射。属批次3 联调项，届时按对方实际列名清单补。
 
 ## 二期执行记录（2026-08-28）
 
@@ -250,6 +255,34 @@
 - **原因**：违反 spec §2.1"X 轴刻度与日期行只画在最底面板"。测试盲区根源：
   既有断言只测 trace 存在性与 matches，未测刻度可见性；验收目测当时聚焦
   买卖点/阶梯，漏看刻度。修复由代码评审指出后 TDD 补齐。
+
+### 二期评审修复（2026-08-28，同日第二阶段）
+
+- **I-1**（Important）：多面板时间刻度全部丢失——shared_xaxes 隐藏顶轴刻度、
+  代码又显式关掉底轴刻度，违反 spec §2.1"刻度画在最底面板"。TDD 修复：刻度配置
+  （range/tickvals/ticktext/tickfont）移至最底面板轴且可见，中间轴隐藏；
+  `test_multi_panel_axes_and_rows` 补刻度归属断言。commit 26e552b。
+- **Minor 1**：`_leader_tag` 的 trace/标注未绑面板轴（放 extra_panels 会落主图）→
+  绑定 `yaxis=ctx.yaxis`，补 `test_multi_panel_leader_tag_on_own_panel`。commit 3665178。
+- **Minor 2**：`_remap_axes` 不处理面板0 原语缺省 axis（用户 panels 整体替换时缺省 y2
+  会落到面板1 主轴）→ 面板0 缺省注入 overlay 重映射轴；补
+  `test_multi_panel_panel0_default_axis_remap`。commit 3665178。
+- **Minor 3**（不修）：`_wire_events` 前缀聚合 `startswith("trade_exec")` 的撞名边角——
+  现库仅 `trade_exec:{action}` 一种前缀 kind，无现实触发面；改精确匹配反而破坏
+  ref 前缀聚合语义。记 P2 已知问题第 10 条。
+- **Minor 4**（不修）：spec §3.1"中文列名容错"未实现——契约基线 98cd3bd 返回英文列名，
+  属批次3 联调项；已复现 KeyError 并记 P2 已知问题第 11 条。
+- **Minor 5**：非覆盖类 ValueError 原样上报但缺"可改用 mode: excel"提示（spec §四）→
+  auto.py 补提示包装（保留原异常消息），补 `test_non_coverage_error_keeps_excel_hint`。commit c409194。
+- **Minor 6**：`contract_mult: true`（bool 是 int 子类）可过校验 → 校验排除 bool，
+  补 `test_contract_mult_bool_rejected`。commit c409194。
+- **Minor 7**：契约测试排序断言缺负向驱动 → `_install_fake` 加 `descending` 参数，
+  补 `test_descending_input_normalized` 负向回归（实为日网格 reindex 天然归一，
+  注释已注明，非专门排序逻辑）。commit c409194。
+- **连带发现并修复**：`test_not_installed` 单跑时仍漏气——本机真装 local_datasource，
+  哨兵只对已缓存键生效，未缓存时 import_module 会重新加载真包；顶层键须显式放入。
+  该修复在 c409194 同批提交。教训：全量跑的测试顺序恰好掩盖了单跑缺陷，修复后
+  已验证（单跑/组合跑/integration 先行）三种序列全绿。
 
 ### 无其他偏差
 
