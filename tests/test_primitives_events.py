@@ -46,3 +46,24 @@ def test_day_seps_and_labels():
     draw(fig, {"type": "day_labels"}, ctx)
     assert any(sh.type == "line" and sh.x0 == sh.x1 for sh in fig.layout.shapes)
     assert any((a.text or "") == "08-19" for a in fig.layout.annotations)
+
+def test_line_hv_shape():
+    ctx, _ = _ctx()
+    ctx.df["position_lots"] = 1.0          # 夹具无仓位列，补常量列仅为验证 shape 透传
+    fig = go.Figure()
+    draw(fig, {"type": "line", "col": "position_lots", "shape": "hv"}, ctx)
+    assert fig.data[0].line.shape == "hv"
+
+def test_events_style_map_by_action():
+    ctx, ev = _ctx()
+    from quantchart.core.signals import Event
+    ev["trade_exec"] = [
+        Event(10.0, pd.Timestamp("2026-08-19 09:39"), 7000.0, "买1手",
+              "trade_exec:buy", {"action": "buy"}),
+        Event(20.0, pd.Timestamp("2026-08-19 14:00"), 7100.0, "平all手",
+              "trade_exec:close", {"action": "close"})]
+    fig = go.Figure()
+    draw(fig, {"type": "events", "ref": "trade_exec", "events": ev, "axis": "y",
+               "style_map": {"buy": {"symbol": "triangle-up", "color": "#c0392b"},
+                             "close": {"symbol": "x", "color": "#55595f"}}}, ctx)
+    assert fig.data[0].marker.symbol == "triangle-up"

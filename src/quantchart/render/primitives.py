@@ -38,7 +38,8 @@ def _line(fig, spec, ctx):
         mode="lines", name=spec.get("name", spec["col"]),
         line=dict(color=spec.get("color", "#1c4e9d"),
                   width=spec.get("width", 2),
-                  dash=spec.get("dash", "solid"))))
+                  dash=spec.get("dash", "solid"),
+                  shape=spec.get("shape", "linear"))))
 
 
 def _area(fig, spec, ctx):
@@ -103,21 +104,32 @@ def _hline(fig, spec, ctx):
 
 
 def _events(fig, spec, ctx):
-    """事件点标记：marker + 数值标签（默认画在事件所属轴）。"""
+    """事件点标记：marker + 数值标签；style_map 按事件 meta.action 覆盖样式。
+
+    按样式（符号,颜色）分组出 trace：单一样式时仅一个 trace、symbol 为标量
+    （与 MVP 行为一致）；混合样式时各组分属不同 trace，避免 plotly 把
+    symbol 归一成元组导致断言/下游取值形态改变。
+    """
     ax = spec.get("axis", "y2")
     evs = spec["events"][spec["ref"]]
-    fig.add_trace(go.Scatter(
-        x=[e.pos for e in evs], y=[e.value for e in evs], yaxis=ax,
-        mode="markers", showlegend=False, hoverinfo="skip",
-        marker=dict(symbol=spec.get("symbol", "triangle-down"),
-                    size=spec.get("size", 8),
-                    color=spec.get("color", "#701820"),
-                    line=dict(color="white", width=.8))))
+    style_map = spec.get("style_map", {})
+    groups: dict[tuple, list] = {}
     for e in evs:
-        fig.add_annotation(x=e.pos, y=e.value, yref=ax, text=e.label,
-                           showarrow=False, yanchor="top", yshift=-8,
-                           font=dict(size=10.5, color=spec.get("color", "#701820")),
-                           bgcolor="white", opacity=.72, borderpad=1)
+        st = style_map.get((e.meta or {}).get("action"), {})
+        key = (st.get("symbol", spec.get("symbol", "triangle-down")),
+               st.get("color", spec.get("color", "#701820")))
+        groups.setdefault(key, []).append(e)
+    for (sym, col), ge in groups.items():
+        fig.add_trace(go.Scatter(
+            x=[e.pos for e in ge], y=[e.value for e in ge], yaxis=ax,
+            mode="markers", showlegend=False, hoverinfo="skip",
+            marker=dict(symbol=sym, size=spec.get("size", 8), color=col,
+                        line=dict(color="white", width=.8))))
+        for e in ge:
+            fig.add_annotation(x=e.pos, y=e.value, yref=ax, text=e.label,
+                               showarrow=False, yanchor="top", yshift=-8,
+                               font=dict(size=10.5, color=col),
+                               bgcolor="white", opacity=.72, borderpad=1)
 
 
 def _leader_tag(fig, spec, ctx):
