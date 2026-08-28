@@ -203,6 +203,76 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 | 只改标题 | `title` 或命令行 `--title` |
 | 想看自己的仓位 | 顶层写 `trades` + `extra_panels` 仓位面板（完整示例 `configs/basis_zones_position.yaml`） |
 
+## 五之二、深色策略图（日线/日内）
+
+`strategy: daily_candle` 产出深色研报蜡烛图：红涨青跌 K 线 + 均线 + 通道与声明式标注，槽位引擎按「每交易日根数」自适应日线与日内。数据输入有两条通道：
+
+| 通道 | `input.mode` | 必填 | 适用 |
+|---|---|---|---|
+| 通用条形 CSV | `daily_csv` | `input.csv` | 日线 / 15分钟 / 30分钟 / 60分钟均可；列名中英兼容，按 datetime 排序去重 |
+| local-datasource | `daily_api` | `input.api.symbol`（如 `IM0`/`CU0`/`TL0`） | 库直调取条形数据，免手工导出 |
+
+两者都必填 `input.range: [起始日, 结束日]` 闭区间。出图命令与一期相同：`chartflow run configs/daily_candle.yaml -o out/daily.png --html out/daily.html`。
+
+### 周期三参数
+
+| 参数 | 默认 | 作用 |
+|---|---|---|
+| `input.granularity` | `auto` | 周期：`auto` 按数据推断每交易日根数并回显在脚注；也可显式指定 `day`/`week`/`month`/`15min`/`30min`/`60min`，与推断值偏差超 ±15% 直接报错（周期错了整张图就错，不允许静默） |
+| `input.tick_anchor` | `"10:30"` | 日内图每日刻度锚定时刻：锚定该日此时刻那根 bar 标日期；该时刻缺失退回日首根只标日期 |
+| `input.strict_range` | `false` | `true` 时数据覆盖不足（请求起点早于实际覆盖）直接报错；默认只在脚注提示「数据自X日始，请求起点Y早于覆盖」 |
+
+### 通道与标注：只声明，不算数
+
+- **`params.channels` 自动拟合**：每条通道只写 `{start, end, color, dash}`（窗口+样式），上下两轨由 `fit_channel` 自动拟合——中枢主导三步法：中枢LSQ定角度位置→小角度倾斜→张合压摆动极值。
+- **`params.channels` / `params.annotations` 都在 `params` 段下**。`annotations` 共 8 类，定位一律写「x + 价」：x 可以是日期字符串（须在数据中，否则报错）或 pos 数值（bar 槽位序号，预演区可超出数据末根）。
+
+| type | 关键参数 | 示例 |
+|---|---|---|
+| `hline` | `value`、color、width、dash | `{type: hline, value: 6999.8, color: "#e47b7c", width: 1.0, dash: solid}` |
+| `zone` | `from`/`to`、`price`（[下沿, 上沿]）、edgecolor、fillcolor、dash、opacity、label | `{type: zone, from: "2026-08-05 09:45", to: "2026-08-12 15:00", price: [7300, 7430], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}` |
+| `circle` | `at`（[x, 价]）、size、color、label（序号文字） | `{type: circle, at: ["2026-08-11 13:45", 7560], color: "#eeef4e", size: 20, label: "1"}` |
+| `arrow` | `from`/`to`（[x, 价]，箭头指向 to）、color、width、text | `{type: arrow, from: [514.0, 6999.8], to: [514.0, 7560.0], color: "#f21010", width: 3.2}` |
+| `trendline` | `from`/`to`（[x, 价]）、color、width、dash、label | `{type: trendline, from: [1022.0, 7456.8], to: [1038.0, 7380.0], color: "#f04a4a", width: 2.2}` |
+| `text` | `at`（[x, 价]）、`text`、size、color、bgcolor | `{type: text, at: [470.0, 7240], text: "区间宽度560点", size: 12, color: "#f21010"}` |
+| `tag` | `value`（价）、`text`、color（底色）、text_color（字色）；固定挂在图右缘 | `{type: tag, value: 7560.0, text: "7560", color: "#8c4210", text_color: "#f0e0c0"}` |
+| `channel` | `from`/`to`（中枢端点 [x, 价]）、lower/upper（下探/上张，可不对称；或 `width` 等宽）、color、dash、line_width、label | `{type: channel, from: ["2026-07-22", 7000], to: ["2026-08-26", 7500], lower: 80, upper: 120, color: "#39d353", dash: dash}` |
+
+非法 type / 缺参数会以中文报错定位到条目序号。
+
+### 出图自检 CLI（三层验收）
+
+出图后可对「配置 + 成品图」跑机器断言的验收清单——L1 要素齐备 / L2 相对位置 / L3 数学+渲染保真，清单以 python 函数形式随测试交付：
+
+```bash
+.venv/bin/python tools/verify_chart.py configs/chart_01_xau.yaml out/chart_01_xau.png --checks tests/acceptance_checks/chart_01.py
+```
+
+通过时输出「验收通过: …（0 违规）」。三张样张复刻各配一份成品清单：`tests/acceptance_checks/chart_0{1,2,3}.py`（伦敦金 / 沪铜 / 国债）。
+
+### 读图证据约定（`out/refs/`）
+
+复刻样张定数值时，关键读数（药丸价格、高低点价签、通道走向等）一律放大截图留证于 `out/refs/<图名>/`，坐标标定依据与逐字确认结论写在对应配置文件头部注释——后续改数可追溯、可复核。
+
+### 最小 YAML 示例（摘自 configs/daily_candle.yaml 头部）
+
+```yaml
+input:
+  mode: daily_csv
+  csv: data/IM2612_15min.csv
+  range: [2026-06-01, 2026-08-28]
+strategy: daily_candle
+title: "IM2612 合约 · 15分钟策略同款复刻（样板）"
+params:
+  ma: [5, 10, 20, 30, 60]
+  channels:
+    - {start: "2026-07-27 09:45", end: "2026-08-18 15:00", color: "#fdfd52", dash: dash}
+  annotations:
+    - {type: hline, value: 6999.8, color: "#e47b7c", width: 1.0, dash: solid}
+    - {type: zone, from: "2026-08-05 09:45", to: "2026-08-12 15:00", price: [7300, 7430], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}
+    - {type: tag, value: 7560.0, text: "7560", color: "#8c4210", text_color: "#f0e0c0"}
+```
+
 ## 六、常见报错排查
 
 | 报错（节选） | 原因 | 解决 |
