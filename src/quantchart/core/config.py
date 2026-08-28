@@ -27,4 +27,22 @@ def load_config(path: str) -> dict:
         raise ConfigError("params 必须是键值映射")
     if not isinstance(cfg.get("panels", []), list):
         raise ConfigError("panels 必须是列表")
+    trades = cfg.get("trades")
+    if trades is not None:
+        if not isinstance(trades, list) or not trades:
+            raise ConfigError("trades 必须是非空列表（或改用 trades_csv）")
+        for k, t in enumerate(trades):
+            if not isinstance(t, dict):
+                raise ConfigError(f"trades[{k}] 必须是键值映射")
+            for f in ("time", "action"):
+                if f not in t:
+                    raise ConfigError(f"trades[{k}] 缺少 {f}")
+            if t["action"] not in ("buy", "sell", "close"):
+                raise ConfigError(f"trades[{k}].action 非法: {t['action']}（buy/sell/close）")
+            if t["action"] != "close" and not t.get("lots"):
+                raise ConfigError(f"trades[{k}].lots 缺失（close 动作可省略）")
+    if not isinstance(cfg.get("extra_panels", []), list):
+        raise ConfigError("extra_panels 必须是列表")
+    if not isinstance(cfg.get("contract_mult", 200), (int, float)) or cfg.get("contract_mult", 200) <= 0:
+        raise ConfigError("contract_mult 必须是正数")
     return cfg

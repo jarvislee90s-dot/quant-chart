@@ -1,4 +1,5 @@
 import yaml
+import pytest
 from quantchart.core.pipeline import run_pipeline
 from quantchart.core.config import load_config, ConfigError
 
@@ -39,3 +40,43 @@ def test_config_rejects_missing_excel_keys(tmp_path):
         assert False
     except ConfigError as e:
         assert "index" in str(e)
+
+
+from quantchart.core.config import load_config, ConfigError
+import yaml
+
+def _cfg(**over):
+    base = {"input": {"mode": "excel",
+                      "excel": {"future": "tests/fixtures/fut.xlsx",
+                                "index": "tests/fixtures/idx.xlsx"}},
+            "strategy": "basis_review"}
+    base.update(over)
+    return base
+
+def test_trades_field_validation(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.dump(_cfg(trades=[{"time": "2026-08-21 09:39", "action": "long"}])),
+                 encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "trades[0].action" in str(e.value)
+
+def test_trades_missing_lots(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.dump(_cfg(trades=[{"time": "2026-08-21 09:39", "action": "buy"}])),
+                 encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "trades[0].lots" in str(e.value)
+
+def test_extra_panels_must_be_list(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.dump(_cfg(extra_panels={"title": "x"})), encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "extra_panels" in str(e.value)
+
+def test_trades_and_csv_mutually_ok(tmp_path):        # 二选一，只给其一不报错
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.dump(_cfg(trades_csv="E:/t.csv")), encoding="utf-8")
+    assert load_config(str(p))["trades_csv"] == "E:/t.csv"
