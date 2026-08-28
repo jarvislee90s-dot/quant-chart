@@ -30,3 +30,8 @@ def auto_load(input_cfg: dict) -> tuple[pd.DataFrame, object]:
             rep.source = f"Wind Excel（API自{e.start_date}日始，已整体改用Excel）"
             return df, rep
         raise NeedsExcelError(f"{hint}（补 input.excel.future/index 两表后重跑）")
+    except ValueError as e:
+        # 非覆盖类异常（如合约代码不存在）原样上报，附改道提示（spec §四）
+        if "mode: excel" in str(e):
+            raise
+        raise ValueError(f"{e}\n（也可改用 mode: excel，从 Wind 导出两表提供数据）") from e

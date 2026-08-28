@@ -46,3 +46,28 @@ def test_auto_mode_api_ok(monkeypatch, tmp_path):
            "range": ["2026-08-25", "2026-08-27"]}
     df, rep = auto_load(cfg)
     assert rep.source == "local-datasource"
+
+
+def test_non_coverage_error_keeps_excel_hint(monkeypatch, tmp_path):
+    # 评审 Minor：非覆盖类异常原样上报，但须附"可改用 mode: excel"提示（spec §四）
+    import sys, types
+    pkgs = types.ModuleType("local_datasource"); pkgs.__path__ = []
+    prov = types.ModuleType("local_datasource.providers"); prov.__path__ = []
+    common = types.ModuleType("local_datasource.providers.common")
+    class CoverageError(ValueError): pass
+    common.CoverageError = CoverageError
+    fut_m = types.ModuleType("local_datasource.providers.futures")
+    def boom(**kw): raise ValueError("合约代码不存在: XXX")   # 非"补数"类异常
+    fut_m.query_futures = boom
+    idx_m = types.ModuleType("local_datasource.providers.index")
+    idx_m.query_index = lambda **kw: ("x.csv", "ok")
+    for k, v in {"local_datasource": pkgs, "local_datasource.providers": prov,
+                 "local_datasource.providers.common": common,
+                 "local_datasource.providers.futures": fut_m,
+                 "local_datasource.providers.index": idx_m}.items():
+        monkeypatch.setitem(sys.modules, k, v)
+    cfg = {"mode": "auto", "api": {"future": "XXX", "index": "000852"}}
+    with pytest.raises(ValueError) as e:
+        auto_load(cfg)
+    assert "合约代码不存在" in str(e.value)          # 原样上报
+    assert "mode: excel" in str(e.value)              # 附改道提示

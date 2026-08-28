@@ -43,6 +43,7 @@ def load_config(path: str) -> dict:
                 raise ConfigError(f"trades[{k}].lots 缺失（close 动作可省略）")
     if not isinstance(cfg.get("extra_panels", []), list):
         raise ConfigError("extra_panels 必须是列表")
-    if not isinstance(cfg.get("contract_mult", 200), (int, float)) or cfg.get("contract_mult", 200) <= 0:
+    mult = cfg.get("contract_mult", 200)
+    if isinstance(mult, bool) or not isinstance(mult, (int, float)) or mult <= 0:
         raise ConfigError("contract_mult 必须是正数")
     return cfg

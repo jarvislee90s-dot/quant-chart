@@ -13,7 +13,7 @@ def _mkdtemp_csv(df, tmp_path, name):
     df.to_csv(p, index=False, encoding="utf-8-sig")
     return str(p)
 
-def _install_fake(monkeypatch, tmp_path, cov_start=None):
+def _install_fake(monkeypatch, tmp_path, cov_start=None, descending=False):
     """构造 fake local_datasource.providers.{futures,index,common}（契约§3/§4 形态）。"""
     pkgs = types.ModuleType("local_datasource"); pkgs.__path__ = []
     prov = types.ModuleType("local_datasource.providers"); prov.__path__ = []
@@ -26,7 +26,7 @@ def _install_fake(monkeypatch, tmp_path, cov_start=None):
         d = pd.DataFrame({"datetime": ts.strftime("%Y-%m-%d %H:%M:%S"),
                           "open": base, "high": base, "low": base, "close": base,
                           "volume": 1.0, "amount": 1.0})
-        return d
+        return d.iloc[::-1] if descending else d          # 降序样例（负向驱动排序断言）
     def query_futures(symbol, file_path, kind="hist", period="daily", freq="1",
                       start_date=None, end_date=None, trade_date=None):
         if cov_start and start_date and start_date < cov_start:
@@ -64,11 +64,21 @@ def test_coverage_gap_translated(monkeypatch, tmp_path):
     assert "补数" in str(e.value)
 
 def test_not_installed(monkeypatch):
-    # None 哨兵强制 ImportError；须级联置 None 全部已缓存子模块——
-    # 全量回归时 integration 测试会真装真库，子模块留存 sys.modules
-    # 会让 import_module 直接命中缓存、绕过顶层哨兵
-    for k in [k for k in sys.modules if k.startswith("local_datasource")]:
+    # 模拟"未安装"：local_datasource* 全部置 None 哨兵（无论是否已缓存）——
+    # 只置顶层包不够：真库已装时子模块缓存会让 import_module 命中缓存绕过哨兵；
+    # 未缓存时 import_module 会重新加载真包（本机 pip install -e 的场景）。
+    # 顶层键必须显式放入（setitem 只对已存在键生效，真包未 import 时键不存在）。
+    all_lds = [k for k in sys.modules if k.startswith("local_datasource")]
+    for k in set(all_lds) | {"local_datasource"}:
         monkeypatch.setitem(sys.modules, k, None)
     with pytest.raises(LocalDsNotInstalled) as e:
         load_via_local_ds(CFG)
     assert "mode: excel" in str(e.value)
+
+def test_descending_input_normalized(monkeypatch, tmp_path):
+    # 评审 Minor 负向回归：对方若返回降序分钟，日网格 reindex 天然归一为升序
+    # （契约§3"升序"由对齐步骤兜底，非专门排序逻辑）
+    _install_fake(monkeypatch, tmp_path, descending=True)
+    df, rep = load_via_local_ds(CFG)
+    assert df["datetime"].is_monotonic_increasing
+    assert str(df["datetime"].iloc[0]) == "2026-08-25 09:30:00"

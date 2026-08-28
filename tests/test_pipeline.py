@@ -81,6 +81,13 @@ def test_trades_and_csv_mutually_ok(tmp_path):        # 二选一，只给其一
     p.write_text(yaml.dump(_cfg(trades_csv="E:/t.csv")), encoding="utf-8")
     assert load_config(str(p))["trades_csv"] == "E:/t.csv"
 
+def test_contract_mult_bool_rejected(tmp_path):       # 评审 Minor：bool 是 int 子类，须拒
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.dump(_cfg(contract_mult=True)), encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "contract_mult" in str(e.value)
+
 
 CFG_TRADES = {
     "input": {"mode": "excel",
