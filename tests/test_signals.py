@@ -23,3 +23,12 @@ def test_window_min_per_day():
     evs = window_min_events(slots.df, [("2026-08-19 11:30", "2026-08-19 15:00")], col="fut_low")
     assert len(evs) == 1 and evs[0].kind == "window_min"
     assert evs[0].value == df[df["datetime"] >= pd.Timestamp("2026-08-19 11:30")]["fut_low"].min()
+
+def test_event_meta_default_none():
+    from quantchart.core.signals import Event
+    e = Event(pos=1.0, dt=pd.Timestamp("2026-08-21 09:39"), value=7104.4,
+              label="买1手", kind="trade_exec:buy")
+    assert e.meta is None
+    e2 = Event(pos=1.0, dt=pd.Timestamp("2026-08-21 09:39"), value=7104.4,
+               label="买1手", kind="trade_exec:buy", meta={"action": "buy"})
+    assert e2.meta["action"] == "buy"

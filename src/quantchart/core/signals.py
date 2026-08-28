@@ -11,6 +11,7 @@ class Event:
     value: float
     label: str
     kind: str
+    meta: dict | None = None
 
 
 def daily_min_events(df, slots, col="basis", kind="daily_min") -> list[Event]:
