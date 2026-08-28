@@ -5,3 +5,6 @@ build/
 dist/
 outputs/
 tests/fixtures/*.xlsx
+.venv/
+reference/
+集群投研报告*.pdf
