@@ -135,29 +135,34 @@ def _events(fig, spec, ctx):
 
 
 def _leader_tag(fig, spec, ctx):
-    """低点事件 → 连线至基准线 + 价差/涨幅标注（含引导线）。"""
+    """低点事件 → 连线至基准线 + 价差/涨幅标注（含引导线）。trace 绑定所在面板轴。"""
     evs = spec["events"][spec["ref"]]
     ref = float(ctx.df[spec["ref_value_col"]].dropna().iloc[-1])
+    # 主轴引用名 "y" 是 plotly 默认（不设等价）；副轴必须显式绑定，否则 trace 落主图
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
     for e in evs:
         diff = ref - e.value
         pct = (ref / e.value - 1) * 100
         txt = spec.get("text", "+{diff}（{pct}%）").format(
             diff=f"{diff:.0f}", pct=f"{pct:+.1f}", value=f"{e.value:,.0f}", ref=f"{ref:,.1f}")
-        fig.add_trace(go.Scatter(x=[e.pos, e.pos], y=[e.value, ref], mode="lines",
+        fig.add_trace(go.Scatter(x=[e.pos, e.pos], y=[e.value, ref], yaxis=yax,
+                                 mode="lines",
                                  line=dict(color="#606a75", width=1, dash="dot"),
                                  showlegend=False, hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=[e.pos], y=[e.value], mode="markers",
+        fig.add_trace(go.Scatter(x=[e.pos], y=[e.value], yaxis=yax, mode="markers",
                                  marker=dict(symbol="circle-open", size=7,
                                              color="#39414a", line=dict(width=1.1)),
                                  showlegend=False, hoverinfo="skip"))
-        fig.add_annotation(x=e.pos, y=e.value, text=txt, showarrow=True,
+        fig.add_annotation(x=e.pos, y=e.value, yref=yax, xref=ctx.xaxis, text=txt,
+                           showarrow=True,
                            arrowhead=0, arrowcolor="#b3a5dd", arrowwidth=.9, standoff=6,
                            ax=spec.get("ax", 92), ay=spec.get("ay", -120),
                            font=dict(size=10.5, color="#8465c1"),
                            bgcolor="white", bordercolor="#b3a5dd",
                            borderpad=3, opacity=.95,
                            xanchor=spec.get("xanchor", "left"))
-        fig.add_annotation(x=e.pos, y=e.value, text=f"{e.value:,.0f}",
+        fig.add_annotation(x=e.pos, y=e.value, yref=yax, xref=ctx.xaxis,
+                           text=f"{e.value:,.0f}",
                            showarrow=False, yanchor="top", yshift=-7,
                            font=dict(size=10, color="#454b52"),
                            bgcolor="white", opacity=.75, borderpad=1)

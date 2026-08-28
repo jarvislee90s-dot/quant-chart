@@ -57,6 +57,30 @@ def test_multi_panel_axes_and_rows():
     assert bx.tickvals is not None and len(list(bx.tickvals)) > 5
     assert fig.layout.xaxis.showticklabels is False       # 顶轴仍隐藏（不重复画刻度）
 
+def test_multi_panel_leader_tag_on_own_panel():
+    # 评审 Minor：_leader_tag 的 trace/标注须绑定所在面板轴（放 extra_panels 不落主图）
+    df, slots, panels, rep = _panels2()
+    from quantchart.core.signals import window_min_events
+    evs = window_min_events(df, [("2026-08-19 11:30", "2026-08-19 15:00")], "fut_close")
+    n_before = 0
+    panels[1]["layers"] = panels[1]["layers"] + [
+        {"type": "leader_tag", "ref": "window_min", "events": {"window_min": evs},
+         "ref_value_col": "fut_close"}]
+    fig = build_figure(df, slots, panels, rep, title="T")
+    # leader_tag 每事件追加 2 个 trace（连线+圆点），均在面板2：全部绑定 y2，不落主图
+    lt_traces = list(fig.data[-2 * len(evs):])
+    assert len(lt_traces) == 2 * len(evs) > 0
+    assert all(t.yaxis == "y2" for t in lt_traces)
+
+def test_multi_panel_panel0_default_axis_remap():
+    # 评审 Minor：用户 panels 整体替换时，面板0 原语缺省 axis（area/hline 默认 y2）
+    # 须重映射到本图贴水 overlay 轴（y3/y4），而非字面 y2（那是面板1 主轴）
+    df, slots, panels, rep = _panels2()
+    panels[0]["layers"] = panels[0]["layers"] + [{"type": "area", "col": "basis"}]
+    fig = build_figure(df, slots, panels, rep, title="T")
+    area_traces = [t for t in fig.data if t.fill == "tozeroy"]
+    assert area_traces and all(t.yaxis == "y3" for t in area_traces)   # 落 overlay 轴而非 y2（面板1 主轴）
+
 def test_single_panel_unchanged():
     slots, panels, rep = _frame()
     fig = build_figure(slots.df, slots, panels, rep, title="T")

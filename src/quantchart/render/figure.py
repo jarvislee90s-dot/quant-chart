@@ -83,8 +83,10 @@ def _remap_axes(layers: list[dict], overlay_y2: str, overlay_y3: str,
             s["axis"] = overlay_y2
         elif s.get("axis") == "y3":
             s["axis"] = overlay_y3
-        elif "axis" not in s and default_axis and s.get("type") in ("area", "events", "hline"):
-            s["axis"] = default_axis
+        elif "axis" not in s and s.get("type") in ("area", "events", "hline"):
+            # 原语缺省轴重映射：面板0 缺省 y2/y3 是贴水 overlay（重映射到本图 ov2/ov3）；
+            # 其余面板缺省注入本面板主轴。单面板路径不经此处，MVP 行为不变。
+            s["axis"] = default_axis or overlay_y2
         elif s.get("axis") == "y" and default_axis:
             # 配置里 axis: "y" 意为"本面板主轴"（如仓位面板的 0 基准线），
             # 非面板0 时需换成本面板实际主轴名，避免落到全局 y 轴/被 _hline 拒绝
