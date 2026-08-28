@@ -66,3 +66,35 @@ def build_slots(df: pd.DataFrame) -> Slots:
         cur += len(sub)
     return Slots(df=df, day_span=day_span, sep_center=sep_center,
                  tick_pos=tick_pos, tick_lab=tick_lab, n_all=cur)
+
+
+MONTH_TICK_THRESHOLD = 90
+
+
+def build_daily_slots(df: pd.DataFrame) -> Slots:
+    """日线槽位：每交易日一格 pos=0..n-1；非交易日自然压缩；月界分隔、刻度自适应。"""
+    df = df.copy().reset_index(drop=True)
+    n = len(df)
+    if n == 0:
+        raise ValueError("日线数据为空")
+    df["pos"] = np.arange(n, dtype=float)
+    days = list(df["datetime"].dt.date)
+    day_span = {d: (float(i), float(i)) for i, d in enumerate(days)}
+    sep_center = [i - 0.5 for i in range(1, n)
+                  if (days[i].year, days[i].month) != (days[i - 1].year, days[i - 1].month)]
+    tick_pos, tick_lab = [], []
+    if n > MONTH_TICK_THRESHOLD:
+        seen = set()
+        for i, d in enumerate(days):
+            key = (d.year, d.month)
+            if key not in seen:
+                seen.add(key)
+                tick_pos.append(float(i))
+                tick_lab.append(d.strftime("%y-%m"))
+    else:
+        for i, d in enumerate(days):
+            if i == 0 or d.isocalendar()[1] != days[i - 1].isocalendar()[1]:
+                tick_pos.append(float(i))
+                tick_lab.append(d.strftime("%m-%d"))
+    return Slots(df=df, day_span=day_span, sep_center=sep_center,
+                 tick_pos=tick_pos, tick_lab=tick_lab, n_all=n)
