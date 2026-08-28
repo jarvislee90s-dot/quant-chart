@@ -55,13 +55,13 @@ contract_mult: 200
 
 ### 3.1 适配器（新增 `adapters/local_ds.py`）
 
-- 核心函数：`load_via_local_ds(input_cfg) -> (df, QualityReport)`——**库直调**（契约§1）`local_datasource.providers` 的期货/指数分钟接口，按契约§3 做列名映射（含中文列名容错），产出与 excel_wind 同构的规范宽表。
+- 核心函数：`load_via_local_ds(input_cfg) -> (df, QualityReport)`——**库直调**（契约§1 v1.1：CSV 读回形态）`local_datasource.providers` 的期货/指数分钟接口：`file_path` 由我方指定到临时目录，调用后 `pd.read_csv(path, encoding="utf-8-sig")` 读回，按契约§3 做列名映射（含中文列名容错；附加列如指数/个股的 `amount`、期货日线的 `settle` 直接忽略），产出与 excel_wind 同构的规范宽表。粒度映射：我方仅用 1 分钟 → 对方 `freq="1"`。
 - 对齐逻辑下沉共用层 `adapters/common.py`（从 `excel_wind` 抽出日网格、reindex、前值填充、质量报告），两个适配器同源，保证规范宽表与质量脚注一致。
 - `QualityReport.source = "local-datasource"`，脚注自动体现数据来源。
 
 ### 3.2 auto 语义（改造 `adapters/auto.py`）
 
-- `mode: auto` = local-datasource 全区间优先；捕获契约§4 的覆盖异常（可捕获类型 + message 含覆盖截止日与"补数"字样），正则提取截止日后**整体转 Excel** 并提示"API 仅覆盖至 X 日，已改用 Excel"。
+- `mode: auto` = local-datasource 全区间优先；精确捕获 `local_datasource.providers.common.CoverageError`（`ValueError` 子类，message 含覆盖区间起止日与"补数"字样），正则提取**覆盖起始日**后**整体转 Excel** 并提示"API 数据自 X 日始，更早区间已改用 Excel"（补洞范围 = 起始日之前的区间）。
 - `mode: api` = 只走 local-datasource，超覆盖直接报 Excel 补洞指引（不转译）。
 - **v1 不做 API+Excel 区间拼接**（对齐与重复区间裁剪复杂度高，联调批按实际体验再议）。
 - 未安装 local-datasource：auto/api 启动即报"未安装（pip install -e <本机路径>）或改用 mode: excel"，不静默。
@@ -72,6 +72,7 @@ contract_mult: 200
 - 契约测试逐条对照消费契约文件编号（§1 纯函数形态、§3 列名、§4 异常可捕获与 message 要素），测试注释引用§号，契约文件更新时测试同步。
 - 联调专属测试打 marker `integration_localds`，未安装自动 skip。
 - `api_sina.py` 本期保留不动，批次3 联调通过后删除。
+- 联调基线：local-datasource commit `98cd3bd`（CoverageError 与列名清单在此交付）；按其建议锁 commit 安装（`pip install -e` 于固定提交）。
 
 ## 四、错误处理（定性）
 
