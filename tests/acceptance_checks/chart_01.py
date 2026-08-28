@@ -9,7 +9,6 @@ L2 相对位置：药丸与水平线同高（±3）；多空分界文字距中�
 L3 数学：通道两轨平行且==fit_channel 重算（渲染保真）；下轨包裹窗口最深低点；上轨压住峰值高点；
         价差标注数值==箭头两端 y 差（±2）；MA5/10/20/30/60 末值==rolling 末值（±1e-6）。
 """
-import numpy as np
 import pandas as pd
 
 from quantchart.core.channel import fit_channel
@@ -50,8 +49,10 @@ def run(fig, df, rep, cfg) -> Verifier:
     hlines = {s.line.color: s.y0 for s in fig.layout.shapes
               if s.type == "line" and s.y0 == s.y1}
     for c, val, name in ((C_TOP, TOP, "顶"), (C_MID, MID, "中"), (C_BOT, BOT, "底")):
-        if abs(hlines.get(c, np.nan) - val) > 1e-6:
-            v._fail("L2", f"{name}水平线值不符: {hlines.get(c)} ≠ {val}")
+        if c not in hlines:                               # 缺失或被改色（expect_shape_lines 只计数不查色，此处按颜色兜底）
+            v._fail("L2", f"颜色 {c} 的{name}水平线缺失")
+        elif abs(hlines[c] - val) > 1e-6:
+            v._fail("L2", f"{name}水平线值不符: {hlines[c]} ≠ {val}")
         if pills[c]:
             if abs(float(pills[c][0].y) - val) > 3:           # 药丸与水平线同高 ±3
                 v._fail("L2", f"{name}药丸 y={pills[c][0].y} 与水平线 {val} 不同高(±3)")

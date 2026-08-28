@@ -26,7 +26,6 @@ def test_acceptance_chart(name, csv):
     from quantchart.adapters.daily import load_daily
     from quantchart.core.config import load_config
     from quantchart.core.pipeline import run_pipeline
-    from quantchart.qa.verify import Verifier
     cfg = load_config(f"configs/{name}.yaml")
     df, rep = load_daily(cfg["input"])
     fig, _ = run_pipeline(cfg)
