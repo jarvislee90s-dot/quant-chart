@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12（`.venv`）、pandas、Plotly（Candlestick + shapes/annotations）、local-datasource @ `d106144`（期货日线库直调）、akshare（仅 tools 层外盘兜底）、pytest。
 
-**Spec:** `docs/superpowers/specs/2026-08-28-daily-candle-replication-design.md`（本计划从 spec 论证，执行者两份都读）
+**Spec:** 原指向 `2026-08-28-daily-candle-replication-design.md`，该文档已于 2026-08-29 拆分为两份：`2026-08-28-daily-candle-charting-design.md`（通用作图能力，本文实现对象）与 `2026-08-29-three-reference-charts-design.md`（剩余三图复刻，另行计划）（本计划从 spec 论证，执行者两份都读）
 
 ## Global Constraints
 
