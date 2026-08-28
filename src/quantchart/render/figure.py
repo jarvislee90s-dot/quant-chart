@@ -7,7 +7,8 @@ from .primitives import Ctx, draw
 MARGIN = dict(l=68, r=168, t=108, b=130)
 
 
-def build_figure(df, slots, panels: list[dict], rep, title: str = "") -> go.Figure:
+def build_figure(df, slots, panels: list[dict], rep, title: str = "",
+                 row_heights: list | None = None) -> go.Figure:
     assert len(panels) == 1, "MVP 支持单面板（多面板属二期）"
     fig = go.Figure()
     ctx = Ctx(slots=slots, df=df)

@@ -80,3 +80,31 @@ def test_trades_and_csv_mutually_ok(tmp_path):        # 二选一，只给其一
     p = tmp_path / "c.yaml"
     p.write_text(yaml.dump(_cfg(trades_csv="E:/t.csv")), encoding="utf-8")
     assert load_config(str(p))["trades_csv"] == "E:/t.csv"
+
+
+CFG_TRADES = {
+    "input": {"mode": "excel",
+              "excel": {"future": "tests/fixtures/fut.xlsx",
+                        "index": "tests/fixtures/idx.xlsx"}},
+    "strategy": "basis_review",
+    "trades": [{"time": "2026-08-19 13:00", "action": "buy", "lots": 1}],
+    "contract_mult": 200,
+    "extra_panels": [{"title": "仓位", "y_title": "仓位（手）",
+                      "range_cols": ["position_lots"], "layers": []}],
+}
+
+@pytest.mark.skip(reason="待 Task 6 多面板")
+def test_pipeline_trades_and_extra_panels():
+    fig, rep = run_pipeline(CFG_TRADES, title="t")
+    # 仓位列已进渲染 df 且面板数=默认1+追加1
+    assert fig.layout.xaxis2 is not None          # 第二面板存在
+    ann_texts = [a.text for a in fig.layout.annotations if a.text]
+    assert any("买1手" in (t or "") for t in ann_texts)
+
+def test_merge_panels_priority():
+    from quantchart.core.pipeline import merge_panels
+    d, u, e = [{"t": "d"}], [{"t": "u"}], [{"t": "e"}]
+    assert merge_panels(d, None, None) == d
+    assert merge_panels(d, u, None) == u
+    assert merge_panels(d, None, e) == d + e
+    assert merge_panels(d, u, e) == u + e
