@@ -69,6 +69,27 @@ def test_trades_missing_lots(tmp_path):
         load_config(str(p))
     assert "trades[0].lots" in str(e.value)
 
+def test_api_mode_requires_api_section_and_range(tmp_path):
+    # mode=api 缺 api 段 / 缺 range 都要定位到字段报错
+    base = {"input": {"mode": "api", "excel": {"future": "f", "index": "i"}},
+            "strategy": "basis_review"}
+    p = tmp_path / "a.yaml"
+    p.write_text(yaml.dump(base), encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "input.api.future" in str(e.value)
+    p.write_text(yaml.dump({**base, "input": {**base["input"],
+        "api": {"future": "IM2612"}}}), encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "input.api.index" in str(e.value)
+    p.write_text(yaml.dump({**base, "input": {**base["input"],
+        "api": {"future": "IM2612", "index": "000852"}}}), encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_config(str(p))
+    assert "input.range" in str(e.value)
+
+
 def test_extra_panels_must_be_list(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text(yaml.dump(_cfg(extra_panels={"title": "x"})), encoding="utf-8")

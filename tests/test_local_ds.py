@@ -67,7 +67,7 @@ def test_not_installed(monkeypatch):
     # 模拟"未安装"：local_datasource* 全部置 None 哨兵（无论是否已缓存）——
     # 只置顶层包不够：真库已装时子模块缓存会让 import_module 命中缓存绕过哨兵；
     # 未缓存时 import_module 会重新加载真包（本机 pip install -e 的场景）。
-    # 顶层键必须显式放入（setitem 只对已存在键生效，真包未 import 时键不存在）。
+    # 顶层键必须显式放入：真包未 import 时 sys.modules 无该键，旧循环收集不到它。
     all_lds = [k for k in sys.modules if k.startswith("local_datasource")]
     for k in set(all_lds) | {"local_datasource"}:
         monkeypatch.setitem(sys.modules, k, None)

@@ -43,7 +43,7 @@ flowchart LR
 quant-chart/
 ├── configs/               # 配置模板（复制一份改成你的）
 ├── src/quantchart/
-│   ├── adapters/          # ① 数据适配（Wind Excel；API 属二期）
+│   ├── adapters/          # ① 数据适配（Wind Excel / local-datasource）
 │   ├── core/              # ②③ 槽位引擎 / 指标 / 信号 / 插件注册 / 流水线
 │   ├── render/            # ④ Plotly 原语翻译与面板组装
 │   └── plugins/           # 策略插件（basis_review / basis_zones）
@@ -104,10 +104,11 @@ cp configs/basis_zones.yaml my/first.yaml
 
 | 字段 | 必填 | 含义 | 示例值 |
 |---|---|---|---|
-| `input.mode` | 是 | 数据模式。**本期只能 `excel`**（`auto`/`api` 属二期，写了会报错） | `excel` |
-| `input.excel.future` | 是 | 期货分钟表路径。Windows 路径请用正斜杠 `/` | `E:/data/IM2612.CFE原始.xlsx` |
-| `input.excel.index` | 是 | 指数（现货）分钟表路径 | `E:/data/000852.SH.xlsx` |
-| `input.range` | 是 | 分析区间 `[起始日, 结束日]`，闭区间 | `[2026-08-17, 2026-08-27]` |
+| `input.mode` | 是 | 数据模式：`excel`=Wind 两表（任意历史深度）；`api`=local-datasource（仅约最近 8 个交易日，需已安装）；`auto`=API 优先、覆盖不足自动整体改用 Excel（需同时配 `input.api` 与 `input.excel`，脚注标注降级） | `excel` |
+| `input.excel.future` | mode=excel/auto | 期货分钟表路径。Windows 路径请用正斜杠 `/` | `E:/data/IM2612.CFE原始.xlsx` |
+| `input.excel.index` | mode=excel/auto | 指数（现货）分钟表路径 | `E:/data/000852.SH.xlsx` |
+| `input.api.future` / `input.api.index` | mode=api/auto | 期货与指数代码（经 local-datasource 取数） | `IM2612` / `000852` |
+| `input.range` | 是 | 分析区间 `[起始日, 结束日]`，闭区间；api/auto 模式还用它做分钟深度校验 | `[2026-08-17, 2026-08-27]` |
 | `strategy` | 是 | 策略预设：`basis_review`=纯行情+贴水+每日最低；`basis_zones`=再加击球区/触发线/低点价差标注 | `basis_zones` |
 | `title` | 否 | 图表标题（也可用命令行 `--title` 覆盖） | `"IM2612 行情与贴水"` |
 | `params.trigger` | zones 用 | 贴水触发线数值（点），画在击球区内 | `250` |
@@ -182,9 +183,14 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 
 因此 **Wind 导出 Excel 是分钟级数据的唯一可靠主通道**，深度不限、离线可用。
 
-### 4.2 二期：统一走 local-datasource（契约 v1.1）
+### 4.2 local-datasource 接入（已交付）
 
-分钟/日线统一经 [local-datasource](https://github.com/jarvislee90s-dot/local-datasource) 接入（CSV 读回形态，消费契约 v1.1）：本期 `mode` 新增 `auto`/`api`——`api` 只走 local-datasource，覆盖不足时明确报"从 Wind 导出 Excel 补数"指引；`auto` 在覆盖不足且配置了 Excel 时**整体**降级改用 Excel（图脚注标注降级来源，不静默、不做区间拼接）。Excel 用于补 API 覆盖不到的历史区间，仍是深度不限的可靠主通道。
+分钟与日线统一经 [local-datasource](https://github.com/jarvislee90s-dot/local-datasource)（本机数据服务仓，库直调、CSV 读回，消费契约 v1.1），`mode: api` / `mode: auto` 均可用：
+
+- `api`：只走 local-datasource；请求区间早于源覆盖（分钟约最近 8 个交易日，深度按实际数据动态判定）时明确报错并给补数指引，绝不静默降级
+- `auto`：API 优先；覆盖不足时自动整体改用已配置的 Excel，脚注标注「API自X日始，已整体改用Excel」
+- Excel 通道职责：补 API 覆盖不到的历史区间（任意深度）
+- 版本锁定：联调基线 commit `d106144`（建议 `pip install -e` 于固定提交）
 
 ---
 
@@ -198,6 +204,7 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 | 增删击球区 | `params.zones` 列表增删条目（每个区自动带触发线与低点标注） |
 | 不要击球区，只看行情+贴水 | `strategy: basis_review`，删掉 `params` 段 |
 | 改贴水触发线 | `params.trigger` |
+| 只看最近几天（手头没有 Excel） | `mode: api` + `input.api` 两行代码 |
 | 只改标题 | `title` 或命令行 `--title` |
 | 想看自己的仓位 | 顶层写 `trades` + `extra_panels` 仓位面板（完整示例 `configs/basis_zones_position.yaml`） |
 
@@ -207,7 +214,8 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 |---|---|---|
 | `缺少必填字段: input` / `缺少必填字段: strategy` | YAML 顶层缺字段 | 按报错补上对应字段 |
 | `input.mode=excel 需要 input.excel.future 与 input.excel.index 两表路径（缺失: input.excel.index）` | excel 段缺表路径 | 按括号里的字段路径补齐 |
-| `auto 模式（API优先降级）属二期…` | `mode` 写了 `auto` 或 `api` | 本期改为 `mode: excel` |
+| `未安装 local-datasource…或改用 mode: excel` | `mode=api/auto` 但本机未安装 local-datasource | `pip install -e <其仓库路径>` 或改 `excel` |
+| `分钟数据自 X 日始…请从 Wind 导出 Excel 提供补数` | api 模式请求区间早于源覆盖（约最近 8 个交易日） | 更早历史改用 `mode: excel`；`auto` 模式会自动整体改用已配置的 Excel 并在脚注标注 |
 | `FileNotFoundError: ...xlsx` | Excel 路径不对 | 检查路径，Windows 用正斜杠 `/` |
 | `时间点不在数据中: 2026-08-22 13:00` | `zones` 的 from/to 写在非交易日、非交易时段或数据区间外 | 改成区间内实际存在的交易分钟 |
 | kaleido / Chrome 相关报错 | 静态导出缺 Chrome | 安装 Chrome 后重试 |

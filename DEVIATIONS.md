@@ -162,7 +162,7 @@
 10. `_wire_events` 的 `trade_exec` 前缀聚合用 `startswith`：若未来出现
     `trade_exec_xxx` 等撞名 kind 会被误聚合（现库无此 kind，潜伏）。改为精确匹配需同时
     保留 `ref="trade_exec"` 的前缀聚合语义，联调批再定。
-11. spec §3.1 承诺的"中文列名容错"未实现（对方按契约 v1.1/基线 98cd3bd 返回英文列名，
+11. spec §3.1 承诺的"中文列名容错"未实现（对方按契约 v1.1/基线 98cd3bd 返回英文列名，（批次3 改判：不做——契约基线 d106144 锁定英文列名，联调实测通过）
     现网不可达）：中文列表会 KeyError 而非映射。属批次3 联调项，届时按对方实际列名清单补。
 
 ## 二期执行记录（2026-08-28）
@@ -289,3 +289,17 @@
 - Task 1/2/7/8/9 与计划一致；计划内 fake 注入装置、CoverageGap 转译、auto/api 语义均按计划落地。
 - `api_sina.py` 按计划保留未动（批次3 删）。
 - `pytest.mark.integration_localds` 联调测试在本机真实通过（未跳过）：local-datasource 已安装且连网。
+
+## 批次3 联调收官（2026-08-28，同日第三阶段）
+
+local-datasource 终版 `d106144`（基线 98cd3bd 之后仅文档变更，代码零漂移）。真库实测四路全通：
+快乐路径（3 交易日 726 槽位、fut_hold/idx_amount 附加列保留）、覆盖缺口转译
+（真 CoverageError → CoverageGap，起始日 2026-08-24 提取正确）、mode:api 端到端出图、
+mode:auto 覆盖不足整体回退 Excel（source 标注降级）。
+
+收官动作：
+- 删除 `src/quantchart/adapters/api_sina.py`（零引用，批次3 计划项）
+- `config.py` 补 api/auto 模式校验（input.api.future/index 与 input.range，与 excel 模式对齐）
+- README 更新：mode 三态说明、4.2 节改写为"已交付"、报错表与速查表同步、目录树注释
+- 测试琐碎清理：setitem 注释纠正、死变量清除、leader_tag annotation 轴绑定补断言
+- P2 #11（中文列名容错）改判**不做**：契约基线锁定英文列名，风险归零（见下）

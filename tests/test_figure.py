@@ -51,7 +51,7 @@ def test_multi_panel_axes_and_rows():
     assert lots.yaxis == "y2"
     # 时间刻度画在最底面板（spec §2.1）：刻度配置在底轴且可见；
     # 顶轴被 shared_xaxes 隐藏刻度
-    bottom = n_bottom = len(panels)
+    bottom = len(panels)
     bx = fig.layout[f"xaxis{bottom}"] if bottom > 1 else fig.layout.xaxis
     assert bx.showticklabels is not False                 # 底部轴刻度可见
     assert bx.tickvals is not None and len(list(bx.tickvals)) > 5
@@ -62,7 +62,6 @@ def test_multi_panel_leader_tag_on_own_panel():
     df, slots, panels, rep = _panels2()
     from quantchart.core.signals import window_min_events
     evs = window_min_events(df, [("2026-08-19 11:30", "2026-08-19 15:00")], "fut_close")
-    n_before = 0
     panels[1]["layers"] = panels[1]["layers"] + [
         {"type": "leader_tag", "ref": "window_min", "events": {"window_min": evs},
          "ref_value_col": "fut_close"}]
@@ -71,6 +70,8 @@ def test_multi_panel_leader_tag_on_own_panel():
     lt_traces = list(fig.data[-2 * len(evs):])
     assert len(lt_traces) == 2 * len(evs) > 0
     assert all(t.yaxis == "y2" for t in lt_traces)
+    lt_anns = [a for a in fig.layout.annotations if a.yref == "y2"]
+    assert len(lt_anns) >= 2 * len(evs)          # 价差标注与价格标签均绑定面板2
 
 def test_multi_panel_panel0_default_axis_remap():
     # 评审 Minor：用户 panels 整体替换时，面板0 原语缺省 axis（area/hline 默认 y2）
