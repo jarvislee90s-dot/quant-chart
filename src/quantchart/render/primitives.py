@@ -74,8 +74,9 @@ def _zone(fig, spec, ctx):
         fig.add_annotation(x=(x0 + x1) / 2, y=plo, yref=ctx.yaxis,
                            text=spec["label"], showarrow=False,
                            yanchor="bottom", yshift=6,
-                           font=dict(size=11, color="#3a3f46"),
-                           bgcolor="white", bordercolor="#c4c9d0",
+                           font=dict(size=11, color=spec.get("label_color", "#3a3f46")),
+                           bgcolor=spec.get("label_bgcolor", "white"),
+                           bordercolor=spec.get("label_bordercolor", "#c4c9d0"),
                            borderpad=3, opacity=.92)
 
 
@@ -101,8 +102,9 @@ def _hline(fig, spec, ctx):
                            xref=ctx.xaxis if spec.get("from") else "paper",
                            text=spec["label"], showarrow=False,
                            xanchor="left", yanchor="bottom",
-                           font=dict(size=10.5, color=spec.get("color", "#55595f")),
-                           bgcolor="white", opacity=.9)
+                           font=dict(size=10.5, color=spec.get("label_color",
+                                     spec.get("color", "#55595f"))),
+                           bgcolor=spec.get("label_bgcolor", "white"), opacity=.9)
 
 
 def _events(fig, spec, ctx):
@@ -182,3 +184,107 @@ def _day_labels(fig, spec, ctx):
                            text=d.strftime("%m-%d"), showarrow=False,
                            font=dict(size=11.5),
                            bgcolor="#f2f3f5", bordercolor="#d5d8dd", borderpad=3)
+
+
+def _candle(fig, spec, ctx):
+    """日线蜡烛：红涨青跌，颜色可配；x=pos 数值轴。"""
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    fig.add_trace(go.Candlestick(
+        x=ctx.df["pos"],
+        open=ctx.df[spec.get("open", "open")],
+        high=ctx.df[spec.get("high", "high")],
+        low=ctx.df[spec.get("low", "low")],
+        close=ctx.df[spec.get("close", "close")],
+        yaxis=yax,
+        increasing=dict(line=dict(color=spec.get("up", "#e0524d"), width=1)),
+        decreasing=dict(line=dict(color=spec.get("down", "#2fc4c4"), width=1)),
+        name=spec.get("name", "K线"), showlegend=False))
+
+
+def _trendline(fig, spec, ctx):
+    """两点趋势线/通道边线：from/to=[日期或pos, 价]，可带中点标签。"""
+    (x0v, y0), (x1v, y1) = spec["from"], spec["to"]
+    x0, x1 = _xof(ctx, x0v), _xof(ctx, x1v)
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    fig.add_trace(go.Scatter(
+        x=[x0, x1], y=[float(y0), float(y1)], yaxis=yax, mode="lines",
+        line=dict(color=spec.get("color", "#dfe3ea"),
+                  width=spec.get("width", 1.2), dash=spec.get("dash", "solid")),
+        showlegend=False, hoverinfo="skip"))
+    if spec.get("label"):
+        fig.add_annotation(x=(x0 + x1) / 2, y=(float(y0) + float(y1)) / 2,
+                           xref=ctx.xaxis, yref=ctx.yaxis, text=spec["label"],
+                           showarrow=False,
+                           font=dict(size=spec.get("label_size", 10.5),
+                                     color=spec.get("label_color", spec.get("color", "#dfe3ea"))),
+                           bgcolor=spec.get("label_bgcolor"), borderpad=2)
+
+
+def _arrow(fig, spec, ctx):
+    """带箭头引线：头点=to（或 from 本点），尾点=from；可选文字。全部数据坐标。"""
+    fx, fy = spec["from"]
+    fx = _xof(ctx, fx)
+    yref = ctx.yaxis
+    if "to" in spec:
+        tx, ty = spec["to"]
+        tx = _xof(ctx, tx)
+        ax, ay = fx, fy
+    else:
+        tx, ty = fx, fy
+        ax, ay = fx - float(spec.get("dx", 0)), fy - float(spec.get("dy", 0))
+    # 注解没有 textposition 属性（scatter 专属），按 scatter 语义映射为锚点
+    xa, ya = {"middle right": ("left", "middle"), "middle left": ("right", "middle"),
+              "top center": ("center", "bottom"), "bottom center": ("center", "top"),
+              "top right": ("left", "bottom"), "top left": ("right", "bottom"),
+              "bottom right": ("left", "top"), "bottom left": ("right", "top"),
+              "middle center": ("center", "middle")}.get(
+        spec.get("text_position") or "middle right", ("left", "middle"))
+    fig.add_annotation(x=tx, y=ty, ax=ax, ay=ay,
+                       xref=ctx.xaxis, yref=yref, axref=ctx.xaxis, ayref=yref,
+                       showarrow=True, arrowhead=spec.get("arrowhead", 2),
+                       arrowsize=1.1, arrowwidth=spec.get("width", 1.6),
+                       arrowcolor=spec.get("color", "#e0312f"),
+                       standoff=spec.get("standoff", 3),
+                       text=spec.get("text", ""),
+                       xanchor=xa, yanchor=ya,
+                       font=dict(size=spec.get("text_size", 11.5),
+                                 color=spec.get("text_color", spec.get("color", "#e0312f"))))
+
+
+def _tag(fig, spec, ctx):
+    """右缘彩色药丸标签：价格数字 / BULL / BEAR / BASE。"""
+    fig.add_annotation(xref="paper", x=1.002, xanchor="left",
+                       y=float(spec["value"]), yref=ctx.yaxis,
+                       text=str(spec["text"]), showarrow=False,
+                       font=dict(size=spec.get("size", 11),
+                                 color=spec.get("text_color", "#10131a")),
+                       bgcolor=spec.get("color", "#ff8c00"),
+                       borderpad=2.5, opacity=.95)
+
+
+def _circle(fig, spec, ctx):
+    """关键点圆圈标记，可带序号文字（at=[日期, 价]）。"""
+    x, y = spec["at"]
+    x = _xof(ctx, x)
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    label = spec.get("label")
+    fig.add_trace(go.Scatter(
+        x=[x], y=[float(y)], yaxis=yax,
+        mode="markers+text" if label else "markers",
+        marker=dict(symbol="circle-open", size=spec.get("size", 14),
+                    color=spec.get("color", "#f1c40f"), line=dict(width=1.6)),
+        text=[str(label)] if label else None,
+        textposition="top center",
+        textfont=dict(size=10.5, color=spec.get("color", "#f1c40f")),
+        showlegend=False, hoverinfo="skip"))
+
+
+def _text(fig, spec, ctx):
+    """自由彩字标注（品种大字/说明文字/高低点价签）。"""
+    x, y = spec["at"]
+    x = _xof(ctx, x)
+    fig.add_annotation(x=x, y=float(y), xref=ctx.xaxis, yref=ctx.yaxis,
+                       text=str(spec["text"]), showarrow=False,
+                       font=dict(size=spec.get("size", 12),
+                                 color=spec.get("color", "#dfe3ea")),
+                       bgcolor=spec.get("bgcolor"), borderpad=2 if spec.get("bgcolor") else 0)
