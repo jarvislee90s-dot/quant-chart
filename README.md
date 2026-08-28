@@ -14,7 +14,8 @@
 flowchart LR
     FE["Wind 导出 · 期货分钟表"] --> AD
     IE["Wind 导出 · 指数分钟表"] --> AD
-    AD["① 数据适配器 excel_wind.py<br/>两表对齐 · 缺失分钟前值填充 · 质量报告"]
+    LDS["local-datasource<br/>api/auto 通道 · 分钟+日线<br/>（库直调，近期窗口）"] --> AD
+    AD["① 数据适配器 adapters/<br/>excel_wind · local_ds · common 对齐层<br/>缺失分钟前值填充 · 质量报告"]
     AD --> CAN["规范宽表<br/>datetime + fut_* + idx_*"]
     CAN --> SE["② 槽位引擎 session.py<br/>242格/日 · 交易时段压缩X轴 · 跨日断线"]
     SE --> IND["③ 指标注册表 indicators.py<br/>basis 贴水 / vwap 均价 / basis_rate 贴水率"]
@@ -23,8 +24,6 @@ flowchart LR
     PLG --> RD["④ Plotly 渲染 render/<br/>面板 · 双右轴 · 通用注释原语"]
     RD --> OUT1["PNG 1600×900 研报图"]
     RD --> OUT2["HTML 交互图 · 缩放悬停"]
-    API1["新浪期货分钟 API<br/>二期 · 仅约4个交易日深度"] -.-> AD
-    API2["local-datasource<br/>二期 · 日线复用"] -.-> AD
 ```
 
 ### 1.2 三层配置理念：改需求只动对应的层
@@ -59,7 +58,7 @@ quant-chart/
 
 ```mermaid
 flowchart TD
-    S0["Step 0 准备环境"] --> S1["Step 1 Wind 导出两张分钟表"]
+    S0["Step 0 准备环境"] --> S1["Step 1 Wind 导出两张分钟表<br/>（只想看最近几天？改 mode: api 可免 Excel）"]
     S1 --> S2["Step 2 复制模板，改 YAML 字段"]
     S2 --> S3["Step 3 chartflow run 出图"]
     S3 --> OK{"出图成功？"}
@@ -81,7 +80,7 @@ pip install -e ".[dev]"
 
 ### Step 1：准备数据（两张 Excel）
 
-从 Wind 导出**两张分钟级 Excel**，一张期货、一张现货指数。要求：
+从 Wind 导出**两张分钟级 Excel**，一张期货、一张现货指数（只想看最近几天、手头没有 Excel？见速查表 `mode: api` 行）。要求：
 
 | 要求 | 说明 |
 |---|---|
@@ -104,7 +103,7 @@ cp configs/basis_zones.yaml my/first.yaml
 
 | 字段 | 必填 | 含义 | 示例值 |
 |---|---|---|---|
-| `input.mode` | 是 | 数据模式：`excel`=Wind 两表（任意历史深度）；`api`=local-datasource（仅约最近 8 个交易日，需已安装）；`auto`=API 优先、覆盖不足自动整体改用 Excel（需同时配 `input.api` 与 `input.excel`，脚注标注降级） | `excel` |
+| `input.mode` | 是 | 数据模式：`excel`=Wind 两表（任意历史深度）；`api`=local-datasource（期货分钟约 4 个交易日、指数约 8 个，需已安装）；`auto`=API 优先、覆盖不足自动整体改用 Excel（需同时配 `input.api` 与 `input.excel`，脚注标注降级） | `excel` |
 | `input.excel.future` | mode=excel/auto | 期货分钟表路径。Windows 路径请用正斜杠 `/` | `E:/data/IM2612.CFE原始.xlsx` |
 | `input.excel.index` | mode=excel/auto | 指数（现货）分钟表路径 | `E:/data/000852.SH.xlsx` |
 | `input.api.future` / `input.api.index` | mode=api/auto | 期货与指数代码（经 local-datasource 取数） | `IM2612` / `000852` |
@@ -168,26 +167,22 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 
 ---
 
-## 四、数据来源与二期路线
+## 四、数据来源
 
-### 4.1 为什么本期只用 Excel
+### 4.1 两条数据通道
 
-实测（2026-08）免费接口对**分钟级历史**的能力：
-
-| 来源 | 分钟深度 | 结论 |
+| 通道 | 深度 | 适用 |
 |---|---|---|
-| 新浪期货分钟 | 仅约 4 个交易日 | 只够“最近几天快速看” |
-| 腾讯指数分钟 | 约 3 个交易日 | 同上 |
-| 东财 push2his | 当时整域拒绝访问 | 不稳定 |
-| 通达信 pytdx | 指数响应乱码、中金所服务器停服 | 不可用 |
+| **Excel（Wind 导出）** | 任意历史 | 主通道：任意区间分析、离线可用 |
+| **local-datasource** | 期货分钟约 4 个交易日（新浪源）、指数分钟约 8 个（腾讯源），按实际数据动态判定 | 近期窗口快速看图；`auto` 模式下覆盖不足自动整体改用 Excel |
 
-因此 **Wind 导出 Excel 是分钟级数据的唯一可靠主通道**，深度不限、离线可用。
+背景实测（2026-08，直连免费接口的分钟深度天花板，local-datasource 封装后同理）：新浪期货分钟约 4 个交易日、腾讯指数分钟约 8 个、东财 push2his 当时整域拒绝、通达信 pytdx 不可用（乱码/停服）。**分钟级长历史免费源无解，深度靠 Excel 补。**
 
 ### 4.2 local-datasource 接入（已交付）
 
 分钟与日线统一经 [local-datasource](https://github.com/jarvislee90s-dot/local-datasource)（本机数据服务仓，库直调、CSV 读回，消费契约 v1.1），`mode: api` / `mode: auto` 均可用：
 
-- `api`：只走 local-datasource；请求区间早于源覆盖（分钟约最近 8 个交易日，深度按实际数据动态判定）时明确报错并给补数指引，绝不静默降级
+- `api`：只走 local-datasource；请求区间早于源覆盖（期货分钟约 4 个交易日、指数约 8 个，深度按实际数据动态判定）时明确报错并给补数指引，绝不静默降级
 - `auto`：API 优先；覆盖不足时自动整体改用已配置的 Excel，脚注标注「API自X日始，已整体改用Excel」
 - Excel 通道职责：补 API 覆盖不到的历史区间（任意深度）
 - 版本锁定：联调基线 commit `d106144`（建议 `pip install -e` 于固定提交）
@@ -215,7 +210,7 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 | `缺少必填字段: input` / `缺少必填字段: strategy` | YAML 顶层缺字段 | 按报错补上对应字段 |
 | `input.mode=excel 需要 input.excel.future 与 input.excel.index 两表路径（缺失: input.excel.index）` | excel 段缺表路径 | 按括号里的字段路径补齐 |
 | `未安装 local-datasource…或改用 mode: excel` | `mode=api/auto` 但本机未安装 local-datasource | `pip install -e <其仓库路径>` 或改 `excel` |
-| `分钟数据自 X 日始…请从 Wind 导出 Excel 提供补数` | api 模式请求区间早于源覆盖（约最近 8 个交易日） | 更早历史改用 `mode: excel`；`auto` 模式会自动整体改用已配置的 Excel 并在脚注标注 |
+| `分钟数据自 X 日始…请从 Wind 导出 Excel 提供补数` | api 模式请求区间早于源覆盖（期货约 4 个交易日、指数约 8 个） | 更早历史改用 `mode: excel`；`auto` 模式会自动整体改用已配置的 Excel 并在脚注标注 |
 | `FileNotFoundError: ...xlsx` | Excel 路径不对 | 检查路径，Windows 用正斜杠 `/` |
 | `时间点不在数据中: 2026-08-22 13:00` | `zones` 的 from/to 写在非交易日、非交易时段或数据区间外 | 改成区间内实际存在的交易分钟 |
 | kaleido / Chrome 相关报错 | 静态导出缺 Chrome | 安装 Chrome 后重试 |
@@ -247,5 +242,5 @@ pytest tests/test_regression.py -q # 真实数据回归（默认读 Backset 目�
 ```
 
 - [设计文档](docs/superpowers/specs/2026-08-27-quant-chart-design.md) · [实施计划](docs/superpowers/plans/2026-08-27-quant-chart-mvp.md) · [偏差与已知问题 DEVIATIONS.md](DEVIATIONS.md)
-- 二期路线：仓位/持仓面板 · API 拼装（分钟新浪 + 日线 local-datasource） · 多面板图
+- 三期候选（DEVIATIONS 在案）：规则生成器（条件→仓位模拟） · API+Excel 区间拼接 · 期权/ETF 品类 · 回测联动
 - 效果图更新：改图后运行 `python tools/annotate_readme_fig.py` 重新生成图例标注版
