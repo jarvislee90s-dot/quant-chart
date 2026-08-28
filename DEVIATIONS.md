@@ -159,3 +159,78 @@
 7. `run_pipeline` 标题回退对单元素 `range` 会 IndexError（`[0]–[1]` 取值）。
 8. 设计 §5 "插件接口启动校验（签名校验、错误定位到插件文件）"未实现。
 9. ~~`_days_needed` 把节假日当交易日~~——已随 P1-4 移除该函数而消解。
+
+## 二期执行记录（2026-08-28）
+
+执行范围：docs/superpowers/plans/2026-08-28-phase2.md（Task 1→10，批次1+2）。
+起点 HEAD=2d24205，既有 34 测试全绿；终点 60 测试全绿（含 integration_localds 真库连网通过）。
+
+### Task 3 —— 缺 lots 报错文案与计划测试断言矛盾
+
+- **计划原文**：实现 `raise ConfigError(f"trades[{k}] 缺少 lots")`；测试 `assert "trades[0].lots" in str(e.value)`
+- **实际做法**：文案改为 `trades[{k}].lots 缺失（close 动作可省略）`，保留测试断言不动
+- **原因**：计划实现与计划测试自相矛盾；设计 spec §四明确错误格式示例为
+  `trades[2].lots`（定位到条目下标与字段），按设计意图修实现文案。
+
+### Task 4/6 —— pipeline 先于 figure 传入 row_heights 导致 4 个既有测试崩
+
+- **计划原文**：Task 4 的 run_pipeline 调 `build_figure(..., row_heights=row_heights)`，
+  而 `row_heights` 参数要到 Task 6 才加入 build_figure 签名
+- **实际做法**：Task 4 提交时让 build_figure 先接受该参数（N==1 路径不使用），Task 6 再实现多面板逻辑
+- **原因**：计划任务次序矛盾——Task 4 的 Step 4 要求"全量回归除待 Task 6 测试外全绿"，
+  不补参数则 4 个既有测试 TypeError。最小前向兼容修复。
+
+### Task 5 —— events style_map 的 plan 版实现把 symbol 归一成元组
+
+- **计划原文**：`_events` 收集 `syms/cols` 列表后单个 trace 传出 `marker=dict(symbol=syms, color=cols)`
+- **实际做法**：按（符号,颜色）样式分组出多个 trace；单一样式时 symbol 仍为标量
+- **原因**：plotly 会把列表形式的 symbol 规范化为元组 `('triangle-up','x')`，
+  与计划测试断言 `== "triangle-up"` 矛盾，且 MVP 既有测试（单事件、symbol 标量）同样被破坏。
+  分组出 trace 后视觉等价、断言形态与 MVP 一致。
+
+### Task 5 —— line 阶梯测试夹具缺 position_lots 列
+
+- **计划原文**：`test_line_hv_shape` 直接对夹具 ctx 画 `{"col": "position_lots", "shape": "hv"}`
+- **实际做法**：测试内补 `ctx.df["position_lots"] = 1.0` 常量列
+- **原因**：夹具 df 无该列，测试在断言 shape 前就 KeyError；补列后红灯落在目标断言上。
+
+### Task 6 —— plotly 轴行为与计划代码/测试三处矛盾
+
+- **计划原文**：① `fig.update_layout(**{"y3": ...})` 传裸轴号；② 测试断言
+  `fig.layout.xaxis2.matches == "x"`；③ 测试断言 `fig.layout.xaxis2 is None`
+- **实际做法**：① 布局键改 `yaxis3`/`yaxis4`（plotly 布局属性树只认 yaxisN，
+  裸 y3 是 trace 级引用名）；② 共享X断言改为 `fig.layout.xaxis.matches == "x2"`
+  （plotly 7 的 make_subplots 用主轴 matches 指向副轴实现 shared_xaxes，xaxis2.matches 为 None）；
+  ③ 未生成断言改为 `"xaxis2" not in fig.layout`（plotly 对未设轴属性访问抛 AttributeError 而非返回 None）
+- **原因**：三者均为计划与 plotly 7.0 实际行为的矛盾，测试意图（共享X/未生成第二面板轴）不变。
+
+### Task 6 —— _wire_events 按完整 kind 分桶导致 trade_exec 层 KeyError
+
+- **计划原文**：`_wire_events` 以 `e.kind`（如 `trade_exec:buy`）为键建桶；
+  pipeline 自动挂载的交易层 `ref="trade_exec"`（无后缀）
+- **实际做法**：`_wire_events` 对 `trade_exec` 前缀事件额外聚合出 `trade_exec` 桶（ref 前缀引用）
+- **原因**：两处键不一致，解禁的多面板 e2e 测试在 `_events` 处 KeyError: 'trade_exec'。
+  设计意图是"有 trades 必有买卖点标记"，前缀聚合后 buy/sell/close 三种 kind 全部入图。
+
+### Task 10 —— 多面板下 axis:"y"/主轴引用名失效
+
+- **计划原文**：`_build_multi` 给面板 i 生成 Ctx(yaxis=f"y{i}")；`_remap_axes` 不处理字面 "y"
+- **实际做法**：面板1 的轴引用用 plotly 约定名 x/y（无编号，y1/x1 不是合法轴引用）；
+  `_remap_axes` 对非面板0 的 `axis: "y"`（意为"本面板主轴"，如仓位面板 0 基准线）
+  注入本面板实际主轴名
+- **原因**：plotly 主轴引用固定为 "y"；计划写法让面板0 的 hline/area 落到不存在的 y1，
+  且仓位面板 `hline(axis: y)` 被判为"纸面全宽副轴"而报错。示例配置 e2e 因此跑不通。
+
+### Task 10 —— test_not_installed 在真库已装环境下失效
+
+- **计划原文**：`monkeypatch.setitem(sys.modules, "local_datasource", None)` 模拟未安装
+- **实际做法**：级联对全部 `local_datasource*` 已缓存子模块置 None 哨兵
+- **原因**：全量回归时 `test_integration_localds.py`（字母序在前）真装真库并 import 成功，
+  子模块留存 sys.modules；`import_module("local_datasource.providers.futures")` 命中子模块缓存，
+  绕过顶层哨兵不抛 ImportError。生产"未安装"场景无此问题，属测试装置缺口。
+
+### 无其他偏差
+
+- Task 1/2/7/8/9 与计划一致；计划内 fake 注入装置、CoverageGap 转译、auto/api 语义均按计划落地。
+- `api_sina.py` 按计划保留未动（批次3 删）。
+- `pytest.mark.integration_localds` 联调测试在本机真实通过（未跳过）：local-datasource 已安装且连网。
