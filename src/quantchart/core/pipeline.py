@@ -12,6 +12,8 @@ def _wire_events(layers: list, events: list) -> list:
     by_kind = {}
     for e in events:
         by_kind.setdefault(e.kind, []).append(e)
+        if e.kind.startswith("trade_exec"):     # ref="trade_exec"（前缀引用）聚合全部交易事件
+            by_kind.setdefault("trade_exec", []).append(e)
     out = []
     for spec in layers:
         if spec.get("type") in ("events", "leader_tag") and "events" not in spec:

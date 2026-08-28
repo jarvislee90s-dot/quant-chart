@@ -93,7 +93,6 @@ CFG_TRADES = {
                       "range_cols": ["position_lots"], "layers": []}],
 }
 
-@pytest.mark.skip(reason="待 Task 6 多面板")
 def test_pipeline_trades_and_extra_panels():
     fig, rep = run_pipeline(CFG_TRADES, title="t")
     # 仓位列已进渲染 df 且面板数=默认1+追加1
