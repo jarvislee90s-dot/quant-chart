@@ -33,8 +33,10 @@ def draw(fig: go.Figure, spec: dict, ctx: Ctx):
 
 
 def _line(fig, spec, ctx):
+    # 主轴引用名 "y" 是 plotly 默认（不设等价）；副轴必须显式绑定，否则 trace 落主图
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
     fig.add_trace(go.Scatter(
-        x=ctx.df["pos"], y=ctx.df[spec["col"]],
+        x=ctx.df["pos"], y=ctx.df[spec["col"]], yaxis=yax,
         mode="lines", name=spec.get("name", spec["col"]),
         line=dict(color=spec.get("color", "#1c4e9d"),
                   width=spec.get("width", 2),

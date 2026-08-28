@@ -46,6 +46,9 @@ def test_multi_panel_axes_and_rows():
     assert "position_lots" in names                       # 阶梯线已入图
     # 面板0 贴水 overlay：y2 被行2占用，overlay 重映射到 y3/y4
     assert fig.layout.yaxis3.overlaying == "y"
+    # 非面板0 的 line 落到本面板轴（plotly 默认落主图 y，不显式指定则下面板空白）
+    lots = [t for t in fig.data if t.name == "position_lots"][0]
+    assert lots.yaxis == "y2"
 
 def test_single_panel_unchanged():
     slots, panels, rep = _frame()

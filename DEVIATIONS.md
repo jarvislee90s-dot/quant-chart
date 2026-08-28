@@ -229,6 +229,16 @@
   子模块留存 sys.modules；`import_module("local_datasource.providers.futures")` 命中子模块缓存，
   绕过顶层哨兵不抛 ImportError。生产"未安装"场景无此问题，属测试装置缺口。
 
+### Task 10 —— 多面板下 _line 不绑定面板轴，仓位阶梯线落空
+
+- **计划原文**：`_line` 原语不设置 `yaxis`（单面板 MVP 依赖 plotly 默认主轴，从未显式绑定）
+- **实际做法**：`_line` 显式绑定 `yaxis=ctx.yaxis`（主轴 "y" 时传 None 等价，副轴必传）；
+  并给 `test_multi_panel_axes_and_rows` 补断言 `position_lots` trace 的 `yaxis == "y2"`
+- **原因**：验收图目测发现下面板仓位阶梯空白——多面板下 line trace 无轴引用时
+  plotly 一律画在主图 y 轴（0–2 的仓位线压在主图底部不可见）。单面板默认轴恰好等于
+  ctx 轴故 MVP 无影响；计划的多面板章节未覆盖此差异，属设计承诺
+  （spec §2.1"非面板0 各一主轴"）的落地缺口，以验收图目测驱动补齐。
+
 ### 无其他偏差
 
 - Task 1/2/7/8/9 与计划一致；计划内 fake 注入装置、CoverageGap 转译、auto/api 语义均按计划落地。
