@@ -61,3 +61,31 @@ def test_ma_validation():
     load_plugins()
     with pytest.raises(ValueError, match="ma"):
         get_strategy("daily_candle")(_df(), None, ma=[0])
+def _intraday_plugin_df(bars_per_day=16, days=30):
+    rows = []
+    for d in pd.bdate_range("2026-06-01", periods=days):
+        for i in range(bars_per_day):
+            rows.append({"datetime": d + pd.Timedelta(hours=9, minutes=30 + 15 * i),
+                         "close": float(i % 7)})
+    return pd.DataFrame(rows)
+
+
+def test_ma_windows_converted_to_working_days():
+    load_plugins()
+    df = _intraday_plugin_df()                 # 16根/日
+    out = get_strategy("daily_candle")(df, None, ma=[5])
+    w = 5 * 16
+    assert out.df["ma5"].iloc[-1] == pytest.approx(df["close"].iloc[-w:].mean())
+
+
+def test_ma_unit_bar_opts_out():
+    load_plugins()
+    df = _intraday_plugin_df()
+    out = get_strategy("daily_candle")(df, None, ma=[5], ma_unit="bar")
+    assert out.df["ma5"].iloc[-1] == pytest.approx(df["close"].iloc[-5:].mean())
+
+
+def test_ma_unit_invalid():
+    load_plugins()
+    with pytest.raises(ValueError, match="ma_unit"):
+        get_strategy("daily_candle")(_df(), None, ma_unit="week")

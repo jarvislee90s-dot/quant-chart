@@ -118,3 +118,18 @@ def test_extra_panels_rejected(tmp_path):
     cfg["extra_panels"] = [{"title": "副图", "layers": []}]
     with pytest.raises(ValueError, match="单面板"):
         run_pipeline(cfg)
+def test_build_daily_figure_forecast_room():
+    df = _daily_df(10)                          # 日线：bars_per_day=1 → 右界 = 10+2+1.5
+    slots = build_daily_slots(df)
+    fig = build_daily_figure(df, slots, _panels(), DailyQualityReport("x", 10, 10))
+    assert fig.layout.xaxis.range[1] == pytest.approx(10 + 2 * 1 + 1.5)
+    # 日内：16根/日×5日 → 右界 = 80 + 2×16 + 1.5
+    idx = []
+    for d in pd.bdate_range("2026-06-01", periods=5):
+        for i in range(16):
+            idx.append(d + pd.Timedelta(hours=9, minutes=30 + 15 * i))
+    dfi = pd.DataFrame({"datetime": idx, "open": 7000.0, "high": 7100.0,
+                        "low": 6950.0, "close": 7050.0, "volume": 1.0})
+    slots_i = build_daily_slots(dfi)
+    fig_i = build_daily_figure(dfi, slots_i, _panels(), DailyQualityReport("x", 5, 80))
+    assert fig_i.layout.xaxis.range[1] == pytest.approx(80 + 2 * 16 + 1.5)

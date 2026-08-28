@@ -6,12 +6,18 @@ ANN_TYPES = {"hline", "zone", "trendline", "arrow", "tag", "circle", "text"}
 
 
 @register_strategy("daily_candle")
-def run(df, slots, ma=None, annotations=None, **params):
+def run(df, slots, ma=None, ma_unit="day", annotations=None, **params):
     ma = [int(n) for n in (ma or [5, 10, 20, 30, 60])]
     if any(n <= 0 for n in ma) or len(set(ma)) != len(ma):
         raise ValueError(f"ma 必须为正整数且不重复: {ma}")
-    for n in ma:
-        df[f"ma{n}"] = df["close"].rolling(n).mean()
+    if ma_unit not in ("day", "bar"):
+        raise ValueError(f"ma_unit 非法: {ma_unit}（可用: day / bar）")
+    # 频率高于日线时，均线默认按工作日换算：15分钟下 ma5 = 5日 = 16×5 根（ma_unit: bar 可特别约定按根数）
+    bars_per_day = len(df) / max(1, df["datetime"].dt.date.nunique())
+    windows = ([round(n * bars_per_day) for n in ma]
+               if (bars_per_day > 1.5 and ma_unit == "day") else ma)
+    for n, w in zip(ma, windows):
+        df[f"ma{n}"] = df["close"].rolling(w).mean()
 
     palette = DARK["ma_palette"]
     layers = [{"type": "candle", "name": "K线", "up": DARK["up"], "down": DARK["down"]}]
