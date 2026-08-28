@@ -1,0 +1,37 @@
+input:
+  mode: daily_api
+  api: {symbol: IM0}
+  range: [2026-06-01, 2026-08-28]
+strategy: daily_candle
+title: "IM2612 合约 · 日线策略同款复刻（样板）"
+params:
+  ma: [5, 10, 20, 30, 60]
+  annotations:
+    # —— 线形：白趋势线 + 黄虚线上升通道×2 + 压力线 ——
+    - {type: trendline, from: ["2026-07-24", 6900], to: ["2026-08-21", 7560], color: "#dfe3ea", width: 1.3}
+    - {type: trendline, from: ["2026-07-06", 6750], to: ["2026-08-28", 8250], color: "#f1c40f", dash: dash, width: 1.2}
+    - {type: trendline, from: ["2026-06-30", 7050], to: ["2026-08-28", 8360], color: "#f1c40f", dash: dash, width: 1.2}
+    - {type: hline, value: 7650, color: "#e5a50a", width: 1.1}
+    # —— 区域：红实线框 + 红虚线框×2（深色底透明填充） ——
+    - {type: zone, from: "2026-06-01", to: "2026-07-10", price: [7300, 8360], edgecolor: "#e0312f", fillcolor: "rgba(224,49,47,.06)", label: 筹码密集区, label_color: "#e0312f", label_bgcolor: "rgba(0,0,0,0)", label_bordercolor: "rgba(0,0,0,0)"}
+    - {type: zone, from: "2026-08-03", to: "2026-08-07", price: [7350, 7500], edgecolor: "#e0312f", fillcolor: "rgba(0,0,0,0)", label: 左侧集合区间Ⅰ, label_color: "#e0312f", label_bgcolor: "rgba(0,0,0,0)", label_bordercolor: "rgba(0,0,0,0)"}
+    - {type: zone, from: "2026-08-10", to: "2026-08-25", price: [7050, 7300], edgecolor: "#e0312f", fillcolor: "rgba(0,0,0,0)", label: 右侧集合区间Ⅱ, label_color: "#e0312f", label_bgcolor: "rgba(0,0,0,0)", label_bordercolor: "rgba(0,0,0,0)"}
+    # —— 圆圈①②③④ ——
+    - {type: circle, at: ["2026-08-13", 7620], color: "#f1c40f", label: "1"}
+    - {type: circle, at: ["2026-08-17", 7640], color: "#f1c40f", label: "2"}
+    - {type: circle, at: ["2026-08-27", 7690], color: "#f1c40f", label: "3"}
+    - {type: circle, at: ["2026-08-28", 7560], color: "#f1c40f", label: "4"}
+    # —— 引线：区间宽度箭头 + 走势预演分叉（BULL/BEAR/BASE） ——
+    - {type: arrow, from: ["2026-07-16", 6600], to: ["2026-07-16", 7500], color: "#e0312f", width: 2.2, text: 区间宽度560点, text_color: "#e0312f", text_size: 12}
+    - {type: arrow, from: ["2026-08-21", 6900], to: ["2026-08-21", 7100], color: "#e0312f", width: 2.2, text: 区间宽度540点, text_color: "#e0312f", text_size: 12}
+    - {type: arrow, from: ["2026-08-28", 7500], to: ["2026-08-28", 7560], color: "#e0312f", text: BULL, text_color: "#e0312f", text_size: 13}
+    - {type: arrow, from: ["2026-08-28", 7480], to: ["2026-08-27", 7380], color: "#39d353", text: BEAR, text_color: "#39d353", text_size: 13}
+    - {type: arrow, from: ["2026-08-28", 7490], to: ["2026-08-28", 7530], color: "#f1c40f", text: BASE, text_color: "#f1c40f", text_size: 13}
+    # —— 文字：品种大字 / 高低点价签 ——
+    - {type: text, at: ["2026-07-15", 8150], text: "IM2612 合约", size: 17, color: "#e0312f"}
+    - {type: text, at: ["2026-06-30", 8370], text: "8350.0 →", size: 10.5, color: "#dfe3ea"}
+    - {type: text, at: ["2026-07-24", 6410], text: "6450.6 ↓", size: 10.5, color: "#39d353"}
+    # —— 右缘药丸 ——
+    - {type: tag, value: 7560, text: "7560", color: "#ff8c00"}
+    - {type: tag, value: 8098.8, text: "8098.8", color: "#f8a5c2"}
+    - {type: tag, value: 6450.9, text: "6450.9", color: "#d4b106"}

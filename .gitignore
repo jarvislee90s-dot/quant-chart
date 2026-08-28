@@ -8,3 +8,5 @@ tests/fixtures/*.xlsx
 .venv/
 reference/
 集群投研报告*.pdf
+data/
+out/
