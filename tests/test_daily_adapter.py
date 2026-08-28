@@ -9,6 +9,11 @@ CN = """日期,开盘价,最高价,最低价,收盘价,成交量,持仓量
 2026-08-26,7510,7600,7480,7590,110,1
 2026-08-27,7600,7700,7550,7680,120,1
 """
+CN_PAD = """日期 ,开盘价 ,最高价 ,最低价 ,收盘价 ,成交量 ,持仓量
+2026-08-25,7500,7560,7440,7520,100,1
+2026-08-26,7510,7600,7480,7590,110,1
+2026-08-27,7600,7700,7550,7680,120,1
+"""
 EN = """date,open,high,low,close,volume
 2026-08-25,7500,7560,7440,7520,100
 2026-08-26,7510,7600,7480,7590,110
@@ -28,6 +33,12 @@ def test_daily_quality_report_footnote():
 
 def test_csv_cn_headers_extra_cols_dropped(tmp_path):
     df, rep = load_daily_csv(_write(tmp_path, CN))
+    assert list(df.columns) == ["datetime", "open", "high", "low", "close", "volume"]
+    assert len(df) == 3 and rep.days == 3
+
+
+def test_csv_padded_cn_headers_stripped(tmp_path):
+    df, rep = load_daily_csv(_write(tmp_path, CN_PAD, name="pad.csv"))
     assert list(df.columns) == ["datetime", "open", "high", "low", "close", "volume"]
     assert len(df) == 3 and rep.days == 3
 

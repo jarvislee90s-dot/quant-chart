@@ -17,7 +17,7 @@ KEEP = ["datetime", "open", "high", "low", "close", "volume"]
 
 
 def _normalize(raw: pd.DataFrame, start, end, source: str):
-    df = raw.rename(columns={str(c).strip(): c for c in raw.columns})
+    df = raw.rename(columns=lambda c: str(c).strip())
     df = df.rename(columns=CN_REN)
     if "date" in df.columns:
         df = df.rename(columns={"date": "datetime"})
