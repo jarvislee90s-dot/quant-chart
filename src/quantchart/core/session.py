@@ -89,13 +89,22 @@ def build_daily_slots(df: pd.DataFrame) -> Slots:
     uniq = sorted(day_span)
     bars_per_day = n / len(uniq)
     tick_pos, tick_lab = [], []
-    if bars_per_day > 1.5:                          # 日内多根：日界分隔 + 按日刻度抽样
+    if bars_per_day > 1.5:                          # 日内多根：日界分隔 + 按日刻度抽样（锚定该日10:30）
         sep_center = [i - 0.5 for i in range(1, n) if days[i] != days[i - 1]]
         k = max(1, int(np.ceil(len(uniq) / 12)))
+        tser = list(df["datetime"].dt.time)
+        t30 = dtm.time(10, 30)
         for j, d in enumerate(uniq):
-            if j % k == 0:
-                tick_pos.append(day_span[d][0])
-                tick_lab.append(d.strftime("%m-%d"))
+            if j % k:
+                continue
+            s, e = int(day_span[d][0]), int(day_span[d][1])
+            anchor = next((p for p in range(s, e + 1) if tser[p] == t30), None)
+            if anchor is None:                      # 该日无10:30 bar（如测试夹具）→ 退回日首根
+                tick_pos.append(float(s))
+                tick_lab.append(f"{d.month}.{d.day}")
+            else:
+                tick_pos.append(float(anchor))
+                tick_lab.append(f"{d.month}.{d.day} {t30.strftime('%H:%M')}")
     else:                                           # 日线：月界分隔 + 月/周刻度
         sep_center = [i - 0.5 for i in range(1, n)
                       if (days[i].year, days[i].month) != (days[i - 1].year, days[i - 1].month)]

@@ -47,7 +47,7 @@ def _intraday(days=2, bars=4):
     rows = []
     for d in pd.bdate_range("2026-06-01", periods=days):
         for i in range(bars):
-            rows.append({"datetime": d + pd.Timedelta(minutes=15 * (i + 1)),
+            rows.append({"datetime": d + pd.Timedelta(hours=9, minutes=30 + 15 * i),
                          "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 1})
     return pd.DataFrame(rows)
 
@@ -62,12 +62,12 @@ def test_intraday_day_span_seps_and_n():
     assert slots.sep_center == [3.5]
 
 
-def test_intraday_ticks_every_day_when_few():
-    slots = build_daily_slots(_intraday(days=3))
-    assert slots.tick_lab == ["06-01", "06-02", "06-03"]
+def test_intraday_ticks_anchor_1030():
+    slots = build_daily_slots(_intraday(days=3, bars=8))    # 09:30..10:45，含10:30
+    assert slots.tick_lab == ["6.1 10:30", "6.2 10:30", "6.3 10:30"]
 
 
 def test_intraday_tick_sampling_long():
-    slots = build_daily_slots(_intraday(days=25))
+    slots = build_daily_slots(_intraday(days=25))           # 4根/日无10:30 → 退回日首根纯日期
     assert len(slots.tick_lab) == 9          # ceil(25/12)=3 → 每3天打标
-    assert slots.tick_lab[0] == "06-01"
+    assert slots.tick_lab[0] == "6.1"
