@@ -5,6 +5,7 @@ from ..adapters.auto import auto_load
 from ..adapters.daily import load_daily
 from ..render.figure import build_figure
 from ..render.figure_daily import build_daily_figure
+from .config import GRANULARITY_BPD
 from .plugins import get_strategy, load_plugins
 from .position import expand_trades
 from .session import build_daily_slots, build_slots
@@ -68,15 +69,41 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
     """日线旁路：daily_* 通道 → 日线槽位 → 插件 → 深色主题组装（单面板）。"""
     if cfg.get("trades") or cfg.get("trades_csv"):
         raise ValueError("日线模式暂不支持 trades/trades_csv 交易明细（接口保留，日线口径后续适配）")
-    df, rep = load_daily(cfg["input"])
-    slots = build_daily_slots(df)
+    inp = cfg["input"]
+    df, rep = load_daily(inp)
+    gran = inp.get("granularity", "auto")
+    slots = build_daily_slots(df, tick_anchor=inp.get("tick_anchor"))
     load_plugins()
     out = get_strategy(cfg["strategy"])(slots.df, slots, **cfg.get("params", {}))
+
+    # 周期校验（granularity 显式时，数据推断与指定必须一致）；auto 时回显推断值
+    bpd = slots.n_all / max(1, len(slots.day_span))
+    notes = []
+    if gran != "auto":
+        expected = GRANULARITY_BPD[gran]
+        if abs(bpd - expected) > max(1.0, expected * 0.15):
+            raise ValueError(f"周期校验失败: 数据推断每交易日约 {bpd:.0f} 根，"
+                             f"与指定 granularity={gran}（{expected} 根/日）不符"
+                             "——请修正 input.granularity 或检查数据")
+    else:
+        notes.append(f"周期自动推断: 每交易日约{bpd:.0f}根")
+
     panels = merge_panels(out.panels, cfg.get("panels"), cfg.get("extra_panels"))
     panels = [{**p, "layers": _wire_events(p.get("layers", []), out.events)}
               for p in panels]
+    # 标注 pos 锚点防呆：中图位置若用数字 pos，换数据会错位——计数回显到脚注
+    pos_anchors = 0
+    for spec in panels[0].get("layers", []):
+        if spec.get("type") not in ("trendline", "arrow", "circle", "text"):
+            continue
+        first = (spec.get("at") or spec.get("from") or [None])[0]
+        if isinstance(first, (int, float)) and not isinstance(first, bool) \
+                and first < slots.n_all:
+            pos_anchors += 1
+    if pos_anchors:
+        notes.append(f"标注含{pos_anchors}处pos锚点（换数据需重新校准）")
     if not title:
         title = (f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}"
                  f"–{cfg['input'].get('range', ['',''])[1]}）")
-    fig = build_daily_figure(out.df, slots, panels, rep, title=title)
+    fig = build_daily_figure(out.df, slots, panels, rep, title=title, notes=notes)
     return fig, rep

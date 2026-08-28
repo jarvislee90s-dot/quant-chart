@@ -88,3 +88,19 @@ def test_api_success(monkeypatch):
     monkeypatch.setattr("local_datasource.providers.futures.query_futures", fake_query)
     df, rep = load_daily_api("IM0", "2026-08-25", "2026-08-27")
     assert len(df) == 3 and "local-datasource(IM0)" in rep.footnote()
+
+def test_csv_volume_optional(tmp_path):
+    csv = _write(tmp_path, "date,open,high,low,close\n"
+                            "2026-08-25,7500,7560,7440,7520\n"
+                            "2026-08-26,7510,7600,7480,7590\n")
+    df, rep = load_daily_csv(csv)
+    assert "volume" not in df.columns
+    assert "无量" in rep.footnote()
+
+
+def test_csv_coverage_note_and_strict(tmp_path):
+    csv = _write(tmp_path, CN)                     # 数据自 2026-08-25 始
+    df, rep = load_daily_csv(csv, start="2026-08-01", end="2026-08-28")
+    assert "数据自2026-08-25始" in rep.footnote()  # 默认：脚注明示，不静默截短
+    with pytest.raises(ValueError, match="早于覆盖"):
+        load_daily_csv(csv, start="2026-08-01", end="2026-08-28", strict_range=True)

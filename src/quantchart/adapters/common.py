@@ -1,5 +1,5 @@
 """适配器共用：日网格对齐、前值填充、质量报告（excel_wind 与 local_ds 同源）。"""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -42,6 +42,12 @@ class DailyQualityReport:
     source: str
     days: int
     rows: int
+    bpd: float = 1.0            # 每交易日根数（>1.5 即日内周期，脚注回显）
+    notes: list = field(default_factory=list)   # 覆盖/无量等提示，附在脚注尾
 
     def footnote(self) -> str:
-        return f"数据来源:{self.source}；交易日{self.days}天。"
+        s = f"数据来源:{self.source}；交易日{self.days}天"
+        if self.bpd > 1.5:
+            s += f"（每交易日约{self.bpd:.0f}根，日内周期）"
+        s += "。"
+        return s + "".join(f" {n}" for n in self.notes)

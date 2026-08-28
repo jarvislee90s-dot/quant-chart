@@ -71,11 +71,12 @@ def build_slots(df: pd.DataFrame) -> Slots:
 MONTH_TICK_THRESHOLD = 90
 
 
-def build_daily_slots(df: pd.DataFrame) -> Slots:
+def build_daily_slots(df: pd.DataFrame, tick_anchor: str | None = None) -> Slots:
     """日线/日内条形槽位：每 bar 一格 pos=0..n-1；非交易时段自然压缩。
 
     日线（每日一根）：月界分隔、月/周自适应刻度；
-    日内多根/日（如 15 分钟）：日界分隔、按日自适应抽样打刻度。
+    日内多根/日（如 15 分钟）：日界分隔、按日自适应抽样打刻度（锚定该日 tick_anchor
+    时刻那根，默认 10:30；该时刻缺失则退回日首根、只标日期——适配不同市场时段）。
     """
     df = df.copy().reset_index(drop=True)
     n = len(df)
@@ -93,7 +94,8 @@ def build_daily_slots(df: pd.DataFrame) -> Slots:
         sep_center = [i - 0.5 for i in range(1, n) if days[i] != days[i - 1]]
         k = max(1, int(np.ceil(len(uniq) / 12)))
         tser = list(df["datetime"].dt.time)
-        t30 = dtm.time(10, 30)
+        hh, mm = map(int, (tick_anchor or "10:30").split(":"))
+        t30 = dtm.time(hh, mm)
         for j, d in enumerate(uniq):
             if j % k:
                 continue

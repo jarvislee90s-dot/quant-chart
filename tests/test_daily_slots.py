@@ -71,3 +71,10 @@ def test_intraday_tick_sampling_long():
     slots = build_daily_slots(_intraday(days=25))           # 4根/日无10:30 → 退回日首根纯日期
     assert len(slots.tick_lab) == 9          # ceil(25/12)=3 → 每3天打标
     assert slots.tick_lab[0] == "6.1"
+
+
+def test_intraday_tick_anchor_configurable():
+    slots = build_daily_slots(_intraday(days=3, bars=8), tick_anchor="10:00")
+    assert slots.tick_lab == ["6.1 10:00", "6.2 10:00", "6.3 10:00"]
+    slots2 = build_daily_slots(_intraday(days=3, bars=8), tick_anchor="12:00")
+    assert slots2.tick_lab == ["6.1", "6.2", "6.3"]      # 该时刻缺失 → 退回日首根

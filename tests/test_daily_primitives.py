@@ -103,3 +103,14 @@ def test_channel_symmetric_width_and_label():
     assert list(fig.data[0].y) == [6950.0, 7050.0]      # width 等宽：中枢±50
     ann = fig.layout.annotations[0]
     assert ann.text == "外层通道" and ann.y == 7100.0    # 标在上轨中点上方
+
+
+def test_candle_colors_reference_theme(monkeypatch):
+    """防漂移守护：_candle 缺省色必须引用 theme.DARK，不得内嵌字面色。"""
+    from quantchart.render import theme
+    monkeypatch.setitem(theme.DARK, "up", "#abc123")
+    monkeypatch.setitem(theme.DARK, "down", "#321cba")
+    fig = go.Figure()
+    draw(fig, {"type": "candle"}, _ctx())
+    assert fig.data[0].increasing.line.color == "#abc123"
+    assert fig.data[0].decreasing.line.color == "#321cba"

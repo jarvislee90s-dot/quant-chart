@@ -39,16 +39,17 @@ flowchart LR
 | `daily_api` | local-datasource `query_futures(period="daily")` 库直调+CSV读回（基线 d106144） | 未安装给安装指引并提示改用 `daily_csv`，绝不静默降级 |
 | `daily_csv` | 通用条形 CSV | 列名中英兼容；**周期不限**（日线/15分钟/30分钟/60分钟均可，按 datetime 排序去重） |
 
-- 关键函数：`load_daily(input_cfg) -> (DataFrame, DailyQualityReport)`；宽表列规范 `datetime, open, high, low, close, volume`
+- 关键函数：`load_daily(input_cfg) -> (DataFrame, DailyQualityReport)`；宽表列规范 `datetime, open, high, low, close`，**volume 可选**（无量品种如伦敦金自动省略，脚注标注"无量"）
+- **周期显式参数化**：`input.granularity: auto(默认)/day/week/month/15min/30min/60min`——auto 按数据推断每交易日根数并回显；显式指定则与推断值校验，偏差超 ±15% 直接报错（周期错了整张图就错了，不允许静默）。周期根数表 `GRANULARITY_BPD` 收敛在 config.py
+- **数据覆盖校验**：请求起点早于数据实际覆盖时**不得静默截短**——脚注强制标注"数据自X日始，请求起点Y早于覆盖"；`input.strict_range: true` 时直接报错
 - 错误处理：未安装/缺文件/缺列/重复日期/区间内无数据，中文报错定位来源
-- 已知缺口（二期处理）：volume 目前必填，无量品种（XAU）待开放可选
 
 ### FR-2 条形槽位（粒度自适应）
 
 - 关键函数：`build_daily_slots(df) -> Slots`（复用现有结构，分钟引擎不改）
 - 行为：每 bar 一格 `pos=0..n-1` 连续；非交易时段自然压缩
 - 日线（每日一根）：月界分隔、月/周自适应刻度
-- 日内多根/日：日界分隔、按日抽样刻度（约 12 个标签），**锚定该日 10:30 那根 bar**，标签格式 `月.日 HH:MM`（同原报告画法）
+- 日内多根/日：日界分隔、按日抽样刻度（约 12 个标签），**锚定该日 tick_anchor 时刻那根 bar**（`input.tick_anchor`，默认 "10:30"，同原报告画法；该时刻缺失退回日首根只标日期——适配不同市场时段）
 
 ### FR-3 渲染原语（8 类）
 
@@ -69,7 +70,8 @@ flowchart LR
 ### FR-4 深色主题图组装
 
 - 关键函数：`build_daily_figure(df, slots, panels, rep, title) -> go.Figure`
-- 布局契约：深底浅网格（色值集中 `theme.DARK`，原语缺省色一律引用常量防漂移）；右缘留白容纳 tag 药丸；xaxis 右界 = `n_all + FORECAST_DAYS × bars_per_day + 1.5`（`FORECAST_DAYS = 2`，为三情形预演折线腾出预测区；日线图退化为 +2 格）；标题/脚注 annotation，脚注为条形数据口径
+- 布局契约：深底浅网格（色值集中 `theme.DARK`，原语缺省色一律引用常量防漂移，测试以哨兵色守护）；右缘留白容纳 tag 药丸；xaxis 右界 = `n_all + FORECAST_DAYS × bars_per_day + 1.5`（`FORECAST_DAYS = 2`，为三情形预演折线腾出预测区；日线图退化为 +2 格）；标题/脚注 annotation，脚注为条形数据口径
+- **脚注回显（出图前自检清单）**：数据来源、交易日数、**每交易日根数与周期标签**、周期自动推断值、**pos 锚点标注计数**（换数据需重校的隐患显性化）、覆盖提示——控制台与成品图同源可见
 
 ### FR-5 策略插件 daily_candle
 
@@ -82,7 +84,7 @@ flowchart LR
 ### FR-6 YAML 配置与校验
 
 - 模板随一期交付：`configs/daily_candle.yaml`（数据段 + ma + channels + annotations 全要素示例）
-- 校验：`daily_api` 必填 `input.api.symbol`；`daily_csv` 必填 `input.csv`；两者必填 `input.range` 闭区间；`annotations` 为映射列表；`channels` 条目必含 `start/end`
+- 校验：`daily_api` 必填 `input.api.symbol`；`daily_csv` 必填 `input.csv`；两者必填 `input.range` 闭区间；`input.granularity` ∈ auto/day/week/month/15min/30min/60min；`input.strict_range` 布尔；`input.tick_anchor` "HH:MM" 格式；`annotations` 为映射列表；`channels` 条目必含 `start/end`
 
 ### FR-7 流水线路由
 
@@ -97,14 +99,26 @@ flowchart LR
 | XAU 伦敦金现货日线 | akshare `futures_foreign_hist` | ✅ 5186 交易日（2006→当日），无量 |
 | CU0 / TL0 日线 | 同期货接口 | 二期使用，机制通用 |
 
-## 5. 一期验收（已达成）
+## 5. 出图前参数确认清单（交互约定）
+
+作图前若以下参数未明确，先向用户确认、不猜测（CLI 层对应"推断回显+矛盾报错"）：
+
+| # | 参数 | 缺省行为 |
+|---|---|---|
+| 1 | 数据来源与品种代码（或 CSV 路径） | 必须提供 |
+| 2 | **周期**（日/60/30/15 分钟…） | 数据推断但必须回显确认（granularity 显式则校验） |
+| 3 | 时间窗口（起止） | 必须提供；早于覆盖时脚注/报错 |
+| 4 | 关键位阶（支撑/压力/目标位） | 可选，提取后回显 |
+| 5 | 输出（PNG/HTML 路径、对照图） | 有默认值 |
+
+## 6. 一期验收（已达成）
 
 1. `pytest -q` 全绿，既有分钟测试零修改零失败；
 2. `chartflow run configs/daily_candle.yaml -o out/daily_candle_IM.png --html out/daily_candle_IM.html` 成功，脚注条形口径；
 3. 与 `reference/05_IM2612合约.png` 并排目视：深色蜡烛红涨青跌、工作日均线×5、三条水平支撑压力线（6460.9/6999.8/7560）+右缘药丸、黄/绿双通道、区间宽度箭头（560/539 点）、①②③④圆圈、BULL/BEAR/BASE 走势预演、大字标注、高低点价签；
 4. 换品种/换周期仅改 YAML，零代码改动。
 
-## 6. 已知限制与后续
+## 7. 已知限制与后续
 
 - 免费源 15 分钟深度约 1023 根（≈64 交易日），更长窗口需 Wind 导出 Excel 补数；
 - XAU 无量：volume 可选语义未实现（二期前置任务）；

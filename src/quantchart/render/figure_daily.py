@@ -9,7 +9,7 @@ from .theme import DARK
 FORECAST_DAYS = 2   # 右缘预测区：为三情形预演折线留出的工作日数（同原报告画法）
 
 
-def build_daily_figure(df, slots, panels, rep, title: str = "") -> go.Figure:
+def build_daily_figure(df, slots, panels, rep, title: str = "", notes=None) -> go.Figure:
     if len(panels) != 1:
         raise ValueError(f"日线模式暂仅支持单面板（收到 {len(panels)} 个）")
     fig = go.Figure()
@@ -37,9 +37,11 @@ def build_daily_figure(df, slots, panels, rep, title: str = "") -> go.Figure:
     fig.add_annotation(x=.006, y=1.06, xref="paper", yref="paper", showarrow=False,
                        text=f"<b>{title}</b>", font=dict(size=20, color=DARK["font"]),
                        xanchor="left")
+    extra = " ".join(notes) if notes else ""
     fig.add_annotation(x=.998, y=-.128, xref="paper", yref="paper", showarrow=False,
                        xanchor="right", font=dict(size=10, color="#7a8494"),
-                       text=rep.footnote() + " 时间轴仅含交易日（周末与节假日压缩）。")
+                       text=rep.footnote() + (" " + extra if extra else "")
+                       + " 时间轴仅含交易日（周末与节假日压缩）。")
     return fig
 
 

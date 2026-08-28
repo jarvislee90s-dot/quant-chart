@@ -133,3 +133,35 @@ def test_build_daily_figure_forecast_room():
     slots_i = build_daily_slots(dfi)
     fig_i = build_daily_figure(dfi, slots_i, _panels(), DailyQualityReport("x", 5, 80))
     assert fig_i.layout.xaxis.range[1] == pytest.approx(80 + 2 * 16 + 1.5)
+
+
+def test_granularity_mismatch_raises(tmp_path):
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL.replace("  mode: daily_csv", "  mode: daily_csv\n  granularity: 15min")))
+    with pytest.raises(ValueError, match="周期校验失败"):
+        run_pipeline(cfg)
+
+
+def test_granularity_auto_and_pos_note_in_footnote(tmp_path):
+    text = CFG_TMPL.replace(
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}',
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}\n'
+        '    - {{type: text, at: [3.0, 7100], text: "pos标注"}}')
+    fig, rep = run_pipeline(load_config(_write_cfg(tmp_path, text)))
+    texts = [a.text for a in fig.layout.annotations]
+    assert any("周期自动推断" in t for t in texts)
+    assert any("pos锚点" in t for t in texts)
+
+
+def test_config_granularity_invalid():
+    with pytest.raises(ConfigError, match="input.granularity"):
+        load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21], granularity: 5min}")
+
+
+def test_config_tick_anchor_invalid():
+    with pytest.raises(ConfigError, match="tick_anchor"):
+        load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21], tick_anchor: ten}")
+
+
+def test_config_strict_range_non_bool():
+    with pytest.raises(ConfigError, match="strict_range"):
+        load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21], strict_range: yes-please}")

@@ -1,9 +1,15 @@
 """YAML 加载与校验：错误信息定位到字段路径。"""
+import re
+
 import yaml
 
 
 class ConfigError(ValueError):
     pass
+
+
+# 周期 → 每交易日根数（中金所时段 09:30-11:30/13:00-15:00 = 240 分钟）
+GRANULARITY_BPD = {"day": 1, "week": 1, "month": 1, "15min": 16, "30min": 8, "60min": 4}
 
 
 def load_config(path: str) -> dict:
@@ -25,6 +31,17 @@ def load_config(path: str) -> dict:
         rng = inp.get("range")
         if not (isinstance(rng, list) and len(rng) == 2):
             raise ConfigError(f"input.mode={mode} 需要 input.range（起止日期，闭区间）")
+        gran = inp.get("granularity", "auto")
+        if gran not in ("auto", *GRANULARITY_BPD):
+            raise ConfigError(f"input.granularity 非法: {gran}"
+                              f"（可用: auto/day/week/month/15min/30min/60min）")
+        strict = inp.get("strict_range", False)
+        if not isinstance(strict, bool):
+            raise ConfigError("input.strict_range 必须是布尔值")
+        anchor = inp.get("tick_anchor", "10:30")
+        if anchor is not None and not (isinstance(anchor, str)
+                                       and re.fullmatch(r"\d{1,2}:\d{2}", anchor)):
+            raise ConfigError('input.tick_anchor 必须是 "HH:MM" 格式（日内刻度锚定时刻）')
     else:
         if mode in ("excel", "auto"):
             excel = inp.get("excel")
