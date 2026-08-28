@@ -1,49 +1,49 @@
 input:
-  mode: daily_api
-  api: {symbol: IM0}
+  mode: daily_csv
+  csv: data/IM2612_15min.csv
   range: [2026-06-01, 2026-08-28]
 strategy: daily_candle
-title: "IM2612 合约 · 日线策略同款复刻（样板）"
+title: "IM2612 合约 · 15分钟策略同款复刻（样板）"
 params:
   ma: [5, 10, 20, 30, 60]
   annotations:
-    # —— 线形：白趋势线（07-20 低点反弹→右缘收线下方）+ 黄虚线上升通道×2（同源于 7 月低点） ——
-    - {type: trendline, from: ["2026-07-20", 7830], to: ["2026-08-28", 7510], color: "#c9cdd4", width: 1.3}
-    - {type: trendline, from: ["2026-07-20", 6680], to: ["2026-08-28", 9490], color: "#fdfd52", dash: dash, width: 1.2}
-    - {type: trendline, from: ["2026-07-27", 6680], to: ["2026-08-28", 8910], color: "#fdfd52", dash: dash, width: 1.2}
-    # —— 三条水平线（压力=收盘 / 粉色支撑 / 低点），与右缘药丸成对 ——
-    - {type: hline, value: 7666.6, color: "#8a4210", width: 1.1, dash: solid}
-    - {type: hline, value: 7020.0, color: "#e47b7c", width: 1.0, dash: solid}
-    - {type: hline, value: 6641.8, color: "#7d7d01", width: 1.0, dash: solid}
-    # —— 区域：红实线框（筹码密集区）+ 红虚线框×2（标签用独立 text 精确定位） ——
-    - {type: zone, from: "2026-06-02", to: "2026-07-13", price: [7940, 8670], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", dash: solid, opacity: .95}
-    - {type: zone, from: "2026-08-04", to: "2026-08-25", price: [7300, 7430], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}
-    - {type: zone, from: "2026-08-03", to: "2026-08-25", price: [7050, 7180], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}
-    # —— 圆圈①②③（压在压力线上）+ ④（套住最后一根收盘） ——
-    - {type: circle, at: ["2026-08-11", 7680], color: "#eeef4e", size: 22, label: "1"}
-    - {type: circle, at: ["2026-08-13", 7680], color: "#eeef4e", size: 22, label: "2"}
-    - {type: circle, at: ["2026-08-27", 7680], color: "#eeef4e", size: 22, label: "3"}
-    - {type: circle, at: [63.0, 7666], color: "#eeef4e", size: 22, label: "4"}
-    # —— 引线：区间宽度箭头×2（红粗竖线，文字独立标在箭身中部右侧） ——
-    - {type: arrow, from: ["2026-07-23", 6866.6], to: ["2026-07-23", 7653], color: "#f21010", width: 3.2}
-    - {type: arrow, from: ["2026-08-18", 6641.8], to: ["2026-08-18", 7430], color: "#f21010", width: 3.2}
-    # —— 走势预演分叉（右缘扇形：BULL 上 / BASE 中 / BEAR 下） ——
-    - {type: arrow, from: [62.9, 7570], to: [64.3, 7730], color: "#f04a4a", width: 2.2}
-    - {type: arrow, from: [62.8, 7550], to: [63.8, 7360], color: "#f5b800", width: 2.2}
-    - {type: arrow, from: [62.7, 7530], to: [63.6, 7110], color: "#74cf00", width: 2.2}
+    # —— 黄虚线上升通道×2：中枢按反弹段(07-20 14:45低点→08-28 15:00)最小二乘拟合
+    #    y=1.6394x+6787.6，上下等宽 w=290.7 包裹 89.9% 蜡烛 ——
+    - {type: trendline, from: [557.0, 6496.9], to: [1022.0, 7259.2], color: "#fdfd52", dash: dash, width: 1.2}
+    - {type: trendline, from: [557.0, 7078.3], to: [1022.0, 7840.7], color: "#fdfd52", dash: dash, width: 1.2}
+    # —— 三条水平线：底线6460.9(前低) / 中线6999.8(支撑) / 顶线7560(目标)，与右缘药丸成对 ——
+    - {type: hline, value: 6460.9, color: "#7d7d01", width: 1.0, dash: solid}
+    - {type: hline, value: 6999.8, color: "#e47b7c", width: 1.0, dash: solid}
+    - {type: hline, value: 7560.0, color: "#8a4210", width: 1.1, dash: solid}
+    # —— 区域：红实线框（筹码密集区）+ 红虚线框×2（8月建仓观察带） ——
+    - {type: zone, from: "2026-06-01 10:00", to: "2026-07-10 15:00", price: [7520, 8400], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", dash: solid, opacity: .95}
+    - {type: zone, from: "2026-08-05 09:45", to: "2026-08-12 15:00", price: [7300, 7430], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}
+    - {type: zone, from: "2026-08-14 09:45", to: "2026-08-25 15:00", price: [7050, 7180], edgecolor: "#ff0000", fillcolor: "rgba(0,0,0,0)", opacity: .85}
+    # —— 圆圈①②③（8月三处压力区高点）+ ④（套住最后一根收盘） ——
+    - {type: circle, at: ["2026-08-11 13:45", 7560], color: "#eeef4e", size: 20, label: "1"}
+    - {type: circle, at: ["2026-08-17 15:00", 7658], color: "#eeef4e", size: 20, label: "2"}
+    - {type: circle, at: ["2026-08-18 09:45", 7662], color: "#eeef4e", size: 20, label: "3"}
+    - {type: circle, at: [1022.0, 7457], color: "#eeef4e", size: 20, label: "4"}
+    # —— 引线：区间宽度箭头×2，分别对应相邻两条水平线的间距 ——
+    - {type: arrow, from: [514.0, 6999.8], to: [514.0, 7560.0], color: "#f21010", width: 3.2}
+    - {type: arrow, from: [882.0, 6460.9], to: [882.0, 6999.8], color: "#f21010", width: 3.2}
+    # —— 走势预演分叉（右缘扇形：BULL 上指目标7560 / BASE 中 / BEAR 下指支撑） ——
+    - {type: arrow, from: [1012.0, 7455], to: [1021.0, 7550], color: "#f04a4a", width: 2.2}
+    - {type: arrow, from: [1011.0, 7440], to: [1018.0, 7370], color: "#f5b800", width: 2.2}
+    - {type: arrow, from: [1010.0, 7425], to: [1019.0, 7060], color: "#74cf00", width: 2.2}
     # —— 文字：品种大字 / 高低点价签 / 区间宽度 / 预演标签 / 区块名 ——
-    - {type: text, at: ["2026-07-29", 8900], text: "IM2612 合约", size: 19, color: "#f02020"}
-    - {type: text, at: ["2026-06-25", 8660], text: "8629.0 →", size: 10.5, color: "#e4e7eb"}
-    - {type: text, at: ["2026-07-20", 6650], text: "6641.8 ↓", size: 10.5, color: "#39d353"}
-    - {type: text, at: ["2026-07-29", 7180], text: "区间宽度800点", size: 12, color: "#f21010"}
-    - {type: text, at: ["2026-08-21", 6790], text: "区间宽度578点", size: 12, color: "#f21010"}
-    - {type: text, at: [63.0, 7600], text: BULL, size: 13, color: "#f04a4a"}
-    - {type: text, at: [64.1, 7350], text: BASE, size: 13, color: "#f5b800"}
-    - {type: text, at: [63.9, 7070], text: BEAR, size: 13, color: "#74cf00"}
-    - {type: text, at: ["2026-06-09", 8560], text: 筹码密集区, size: 21, color: "#e02020"}
-    - {type: text, at: ["2026-08-13", 7365], text: 左侧建仓区间1, size: 11.5, color: "#e0312f"}
-    - {type: text, at: ["2026-08-18", 7115], text: 左侧建仓区间2, size: 11.5, color: "#e0312f"}
-    # —— 右缘药丸（收盘 / 粉支撑 / 低点，与三条水平线同色系成对） ——
-    - {type: tag, value: 7666.6, text: "7666.6", color: "#8c4210", text_color: "#f0e0c0"}
-    - {type: tag, value: 7020.0, text: "7020.0", color: "#ff8888", text_color: "#8c1d1d"}
-    - {type: tag, value: 6641.8, text: "6641.8", color: "#808000", text_color: "#e0bc37"}
+    - {type: text, at: [430.0, 8250], text: "IM2612 合约", size: 19, color: "#f02020"}
+    - {type: text, at: [300.0, 8390], text: "8350.0 →", size: 10.5, color: "#e4e7eb"}
+    - {type: text, at: [500.0, 6400], text: "6456.6 ↓", size: 10.5, color: "#39d353"}
+    - {type: text, at: [470.0, 7240], text: "区间宽度560点", size: 12, color: "#f21010"}
+    - {type: text, at: [890.0, 6690], text: "区间宽度539点", size: 12, color: "#f21010"}
+    - {type: text, at: [1016.0, 7590], text: BULL, size: 13, color: "#f04a4a"}
+    - {type: text, at: [1015.0, 7340], text: BASE, size: 13, color: "#f5b800"}
+    - {type: text, at: [1014.0, 7000], text: BEAR, size: 13, color: "#74cf00"}
+    - {type: text, at: [60.0, 8250], text: 筹码密集区, size: 21, color: "#e02020"}
+    - {type: text, at: ["2026-08-07 10:30", 7455], text: 左侧建仓区间1, size: 11.5, color: "#e0312f"}
+    - {type: text, at: ["2026-08-18 10:30", 7215], text: 左侧建仓区间2, size: 11.5, color: "#e0312f"}
+    # —— 右缘药丸（目标 / 支撑 / 前低，与三条水平线同色系成对） ——
+    - {type: tag, value: 7560.0, text: "7560", color: "#8c4210", text_color: "#f0e0c0"}
+    - {type: tag, value: 6999.8, text: "6999.8", color: "#ff8888", text_color: "#8c1d1d"}
+    - {type: tag, value: 6460.9, text: "6460.9", color: "#808000", text_color: "#e0bc37"}

@@ -72,29 +72,45 @@ MONTH_TICK_THRESHOLD = 90
 
 
 def build_daily_slots(df: pd.DataFrame) -> Slots:
-    """日线槽位：每交易日一格 pos=0..n-1；非交易日自然压缩；月界分隔、刻度自适应。"""
+    """日线/日内条形槽位：每 bar 一格 pos=0..n-1；非交易时段自然压缩。
+
+    日线（每日一根）：月界分隔、月/周自适应刻度；
+    日内多根/日（如 15 分钟）：日界分隔、按日自适应抽样打刻度。
+    """
     df = df.copy().reset_index(drop=True)
     n = len(df)
     if n == 0:
         raise ValueError("日线数据为空")
     df["pos"] = np.arange(n, dtype=float)
     days = list(df["datetime"].dt.date)
-    day_span = {d: (float(i), float(i)) for i, d in enumerate(days)}
-    sep_center = [i - 0.5 for i in range(1, n)
-                  if (days[i].year, days[i].month) != (days[i - 1].year, days[i - 1].month)]
+    day_span = {d: (float(min(i for i, x in enumerate(days) if x == d)),
+                    float(max(i for i, x in enumerate(days) if x == d)))
+                for d in set(days)}
+    uniq = sorted(day_span)
+    bars_per_day = n / len(uniq)
     tick_pos, tick_lab = [], []
-    if n > MONTH_TICK_THRESHOLD:
-        seen = set()
-        for i, d in enumerate(days):
-            key = (d.year, d.month)
-            if key not in seen:
-                seen.add(key)
-                tick_pos.append(float(i))
-                tick_lab.append(d.strftime("%y-%m"))
-    else:
-        for i, d in enumerate(days):
-            if i == 0 or d.isocalendar()[1] != days[i - 1].isocalendar()[1]:
-                tick_pos.append(float(i))
+    if bars_per_day > 1.5:                          # 日内多根：日界分隔 + 按日刻度抽样
+        sep_center = [i - 0.5 for i in range(1, n) if days[i] != days[i - 1]]
+        k = max(1, int(np.ceil(len(uniq) / 12)))
+        for j, d in enumerate(uniq):
+            if j % k == 0:
+                tick_pos.append(day_span[d][0])
                 tick_lab.append(d.strftime("%m-%d"))
+    else:                                           # 日线：月界分隔 + 月/周刻度
+        sep_center = [i - 0.5 for i in range(1, n)
+                      if (days[i].year, days[i].month) != (days[i - 1].year, days[i - 1].month)]
+        if n > MONTH_TICK_THRESHOLD:
+            seen = set()
+            for i, d in enumerate(days):
+                key = (d.year, d.month)
+                if key not in seen:
+                    seen.add(key)
+                    tick_pos.append(float(i))
+                    tick_lab.append(d.strftime("%y-%m"))
+        else:
+            for i, d in enumerate(days):
+                if i == 0 or d.isocalendar()[1] != days[i - 1].isocalendar()[1]:
+                    tick_pos.append(float(i))
+                    tick_lab.append(d.strftime("%m-%d"))
     return Slots(df=df, day_span=day_span, sep_center=sep_center,
                  tick_pos=tick_pos, tick_lab=tick_lab, n_all=n)

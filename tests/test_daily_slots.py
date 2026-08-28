@@ -43,3 +43,31 @@ def test_empty_df_raises_chinese():
     import pytest
     with pytest.raises(ValueError, match="日线数据为空"):
         build_daily_slots(pd.DataFrame({"datetime": pd.Series([], dtype="datetime64[ns]")}))
+def _intraday(days=2, bars=4):
+    rows = []
+    for d in pd.bdate_range("2026-06-01", periods=days):
+        for i in range(bars):
+            rows.append({"datetime": d + pd.Timedelta(minutes=15 * (i + 1)),
+                         "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 1})
+    return pd.DataFrame(rows)
+
+
+def test_intraday_day_span_seps_and_n():
+    slots = build_daily_slots(_intraday())
+    d0 = pd.Timestamp("2026-06-01").date()
+    d1 = pd.Timestamp("2026-06-02").date()
+    assert slots.n_all == 8
+    assert slots.day_span[d0] == (0.0, 3.0)
+    assert slots.day_span[d1] == (4.0, 7.0)
+    assert slots.sep_center == [3.5]
+
+
+def test_intraday_ticks_every_day_when_few():
+    slots = build_daily_slots(_intraday(days=3))
+    assert slots.tick_lab == ["06-01", "06-02", "06-03"]
+
+
+def test_intraday_tick_sampling_long():
+    slots = build_daily_slots(_intraday(days=25))
+    assert len(slots.tick_lab) == 9          # ceil(25/12)=3 → 每3天打标
+    assert slots.tick_lab[0] == "06-01"

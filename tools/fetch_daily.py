@@ -26,6 +26,19 @@ def _domestic_fallback(symbol, start, end, out):
     return len(df)
 
 
+def _minute(symbol, minutes, start, end, out):
+    """日内 K 线（新浪源，15/30/60 分钟深度约数月）。"""
+    import pandas as pd
+    import akshare as ak
+    df = ak.futures_zh_minute_sina(symbol=symbol, period=str(minutes))
+    df = df.rename(columns={c: str(c).strip() for c in df.columns})
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df.sort_values("datetime")
+    df = df[(df["datetime"] >= start) & (df["datetime"] <= end + " 23:59:59")]
+    df.to_csv(out, index=False, encoding="utf-8-sig")
+    return len(df)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("symbol", help="代码：IM0/CU0/TL0（主连）或 XAU（外盘，配 --foreign）")
@@ -33,9 +46,13 @@ def main():
     ap.add_argument("--end", required=True, help="结束日 YYYY-MM-DD")
     ap.add_argument("-o", "--output", required=True, help="输出CSV路径")
     ap.add_argument("--foreign", action="store_true", help="外盘现货（akshare futures_foreign_hist）")
+    ap.add_argument("--minute", type=int, default=None, choices=(15, 30, 60),
+                    help="日内K线分钟数（新浪源；不配则取日线）")
     args = ap.parse_args()
 
-    if args.foreign:
+    if args.minute:
+        n = _minute(args.symbol, args.minute, args.start, args.end, args.output)
+    elif args.foreign:
         n = _foreign(args.symbol, args.start, args.end, args.output)
     else:
         try:
