@@ -84,3 +84,22 @@ def test_zone_label_bgcolor_default_white():
     draw(fig, {"type": "zone", "from": "2026-08-25", "to": "2026-08-27",
                "price": [1.0, 2.0], "label": "观察区"}, _ctx())
     assert fig.layout.annotations[0].bgcolor == "white"     # 分钟路径行为不变
+
+def test_channel_two_rails_asymmetric():
+    fig = go.Figure()
+    draw(fig, {"type": "channel", "from": ["2026-08-25", 7000.0], "to": ["2026-08-27", 7100.0],
+               "lower": 40.0, "upper": 60.0, "color": "#39d353", "dash": "dash"}, _ctx())
+    assert len(fig.data) == 2
+    assert list(fig.data[0].y) == [6960.0, 7060.0]      # 下轨 = 中枢 − 40
+    assert list(fig.data[1].y) == [7060.0, 7160.0]      # 上轨 = 中枢 + 60
+    assert fig.data[0].line.dash == "dash"
+    assert fig.data[0].showlegend is False
+
+
+def test_channel_symmetric_width_and_label():
+    fig = go.Figure()
+    draw(fig, {"type": "channel", "from": ["2026-08-25", 7000.0], "to": ["2026-08-27", 7100.0],
+               "width": 50.0, "label": "外层通道"}, _ctx())
+    assert list(fig.data[0].y) == [6950.0, 7050.0]      # width 等宽：中枢±50
+    ann = fig.layout.annotations[0]
+    assert ann.text == "外层通道" and ann.y == 7100.0    # 标在上轨中点上方

@@ -1,12 +1,13 @@
 """预设3：daily_candle —— 日线蜡烛同款复刻（深色）。只算不画，视觉交给通用原语。"""
+from ..core.channel import fit_channel
 from ..core.plugins import StrategyOutput, register_strategy
 from ..render.theme import DARK
 
-ANN_TYPES = {"hline", "zone", "trendline", "arrow", "tag", "circle", "text"}
+ANN_TYPES = {"hline", "zone", "channel", "trendline", "arrow", "tag", "circle", "text"}
 
 
 @register_strategy("daily_candle")
-def run(df, slots, ma=None, ma_unit="day", annotations=None, **params):
+def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **params):
     ma = [int(n) for n in (ma or [5, 10, 20, 30, 60])]
     if any(n <= 0 for n in ma) or len(set(ma)) != len(ma):
         raise ValueError(f"ma 必须为正整数且不重复: {ma}")
@@ -24,6 +25,19 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, **params):
     layers += [{"type": "line", "col": f"ma{n}", "name": f"MA{n}",
                 "color": palette[i % len(palette)], "width": 1.2}
                for i, n in enumerate(ma)]
+    # 声明式通道：每条只写窗口+样式，两轨由 fit_channel 自动拟合（中枢主导三步法）
+    for k, c in enumerate(channels or []):
+        if not isinstance(c, dict) or not c.get("start") or not c.get("end"):
+            raise ValueError(f"channels[{k}] 必须是含 start/end 的映射")
+        fit = fit_channel(df, c["start"], c["end"],
+                          tilt=float(c.get("tilt", 0.12)),
+                          press=float(c.get("press", 1.0)))
+        layers.append({"type": "channel",
+                       "from": [fit.window[0], fit.center[0][1]],
+                       "to": [fit.window[1], fit.center[1][1]],
+                       "lower": fit.d_lo, "upper": fit.d_hi,
+                       "color": c.get("color", "#fdfd52"), "dash": c.get("dash", "dash"),
+                       "line_width": c.get("line_width", 1.2), "label": c.get("label")})
     for k, ann in enumerate(annotations or []):
         if not isinstance(ann, dict) or "type" not in ann:
             raise ValueError(f"annotations[{k}] 必须是含 type 的映射"

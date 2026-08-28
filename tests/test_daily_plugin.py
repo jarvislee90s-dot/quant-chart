@@ -63,10 +63,13 @@ def test_ma_validation():
         get_strategy("daily_candle")(_df(), None, ma=[0])
 def _intraday_plugin_df(bars_per_day=16, days=30):
     rows = []
+    p = 0.0
     for d in pd.bdate_range("2026-06-01", periods=days):
         for i in range(bars_per_day):
             rows.append({"datetime": d + pd.Timedelta(hours=9, minutes=30 + 15 * i),
-                         "close": float(i % 7)})
+                         "pos": p, "close": float(i % 7),
+                         "high": float(i % 7) + 20.0, "low": float(i % 7) - 20.0})
+            p += 1
     return pd.DataFrame(rows)
 
 
@@ -89,3 +92,23 @@ def test_ma_unit_invalid():
     load_plugins()
     with pytest.raises(ValueError, match="ma_unit"):
         get_strategy("daily_candle")(_df(), None, ma_unit="week")
+
+
+def test_channels_param_auto_fit():
+    load_plugins()
+    df = _intraday_plugin_df()
+    out = get_strategy("daily_candle")(df, None,
+                                       channels=[{"start": df["datetime"].iloc[20].isoformat(),
+                                                  "end": df["datetime"].iloc[-1].isoformat(),
+                                                  "color": "#39d353", "dash": "dash"}])
+    ch = [l for l in out.panels[0]["layers"] if l["type"] == "channel"]
+    assert len(ch) == 1
+    assert ch[0]["color"] == "#39d353" and ch[0]["dash"] == "dash"
+    assert ch[0]["from"][0] == df.loc[20, "pos"]
+    assert ch[0]["lower"] >= 0.0 and ch[0]["upper"] >= 0.0
+
+
+def test_channels_param_requires_start_end():
+    load_plugins()
+    with pytest.raises(ValueError, match=r"channels\[0\]"):
+        get_strategy("daily_candle")(_intraday_plugin_df(), None, channels=[{"color": "#fff"}])

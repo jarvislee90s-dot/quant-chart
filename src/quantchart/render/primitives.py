@@ -290,3 +290,29 @@ def _text(fig, spec, ctx):
                        font=dict(size=spec.get("size", 12),
                                  color=spec.get("color", "#dfe3ea")),
                        bgcolor=spec.get("bgcolor"), borderpad=2 if spec.get("bgcolor") else 0)
+
+
+def _channel(fig, spec, ctx):
+    """平行通道：from/to=中枢端点[日期或pos,价]，lower/upper=下探/上张量（可不对称，
+    或给 width 等宽）；画上下两条平行轨，可选 label 标在上轨中点上方。"""
+    (x0v, y0), (x1v, y1) = spec["from"], spec["to"]
+    x0, x1 = _xof(ctx, x0v), _xof(ctx, x1v)
+    if "width" in spec:
+        d_lo = d_hi = float(spec["width"])
+    else:
+        d_lo = float(spec.get("lower", 0.0))
+        d_hi = float(spec.get("upper", 0.0))
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    for yy0, yy1 in ((float(y0) - d_lo, float(y1) - d_lo), (float(y0) + d_hi, float(y1) + d_hi)):
+        fig.add_trace(go.Scatter(
+            x=[x0, x1], y=[yy0, yy1], yaxis=yax, mode="lines",
+            line=dict(color=spec.get("color", "#fdfd52"),
+                      width=spec.get("line_width", 1.2), dash=spec.get("dash", "solid")),
+            showlegend=False, hoverinfo="skip"))
+    if spec.get("label"):
+        fig.add_annotation(x=(x0 + x1) / 2, y=(float(y0) + float(y1)) / 2 + d_hi,
+                           xref=ctx.xaxis, yref=ctx.yaxis, text=spec["label"],
+                           showarrow=False, yanchor="bottom", yshift=4,
+                           font=dict(size=spec.get("label_size", 10.5),
+                                     color=spec.get("label_color",
+                                     spec.get("color", "#dfe3ea"))))
