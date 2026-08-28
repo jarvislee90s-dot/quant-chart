@@ -69,7 +69,7 @@ def _zone(fig, spec, ctx):
                   fillcolor=spec.get("fillcolor", "#c2c7cf"),
                   opacity=spec.get("opacity", .32),
                   line=dict(color=spec.get("edgecolor", "#8f959d"),
-                            width=.9, dash="dash"), layer="above")
+                            width=.9, dash=spec.get("dash", "dash")), layer="above")
     if spec.get("label"):
         fig.add_annotation(x=(x0 + x1) / 2, y=plo, yref=ctx.yaxis,
                            text=spec["label"], showarrow=False,
