@@ -102,7 +102,7 @@ flowchart LR
 
 - 签名：`run(df, slots, ma=[5,10,20,30,60], annotations=None, **params) -> StrategyOutput`
 - 计算：`df[f"ma{n}"] = close.rolling(n).mean()`；默认图层 = candle + 均线 × N
-- `annotations`：FR-3 八类 type 的映射列表；插件逐条校验（未知 type / 缺关键参数 → 报错定位到条目序号）并翻译为图层 spec 追加进主面板
+- `annotations`：FR-3 中 **7 类标注 type**（`hline/zone/trendline/arrow/tag/circle/text`）的映射列表；插件逐条校验（未知 type / 缺关键参数 → 报错定位到条目序号）并翻译为图层 spec 追加进主面板；`candle/line` 两类由插件默认图层生成，不开放给 `annotations`（避免引用不存在列的错误延迟到渲染期）；`hline` 缺省 axis 由插件注入主轴（分钟路径的 y2 缺省不适用日线）
 - `trades` 不支持于日线模式：配置了明确报错提示（接口保留）
 
 ### FR-6 YAML 配置与校验
