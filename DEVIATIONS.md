@@ -239,6 +239,18 @@
   ctx 轴故 MVP 无影响；计划的多面板章节未覆盖此差异，属设计承诺
   （spec §2.1"非面板0 各一主轴"）的落地缺口，以验收图目测驱动补齐。
 
+### 二期评审 I-1 —— 多面板时间刻度全部丢失（代码评审后修复）
+
+- **计划原文**：Task 6 `_build_multi` 给顶轴配 tickvals/ticktext，又给底轴
+  `showticklabels=False`；`shared_xaxes` 本身隐藏顶轴刻度 → 双面板零时间刻度
+- **实际做法**：刻度配置（range/tickvals/ticktext/tickangle/tickfont/linecolor）
+  移到最底面板轴且 `showticklabels=True`，中间轴 `showticklabels=False`，
+  顶轴维持 shared_xaxes 的隐藏；`test_multi_panel_axes_and_rows` 补刻度归属断言
+  （底轴可见且 tickvals>5、顶轴仍隐藏）
+- **原因**：违反 spec §2.1"X 轴刻度与日期行只画在最底面板"。测试盲区根源：
+  既有断言只测 trace 存在性与 matches，未测刻度可见性；验收目测当时聚焦
+  买卖点/阶梯，漏看刻度。修复由代码评审指出后 TDD 补齐。
+
 ### 无其他偏差
 
 - Task 1/2/7/8/9 与计划一致；计划内 fake 注入装置、CoverageGap 转译、auto/api 语义均按计划落地。

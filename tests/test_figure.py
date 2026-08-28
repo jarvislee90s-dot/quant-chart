@@ -49,6 +49,13 @@ def test_multi_panel_axes_and_rows():
     # 非面板0 的 line 落到本面板轴（plotly 默认落主图 y，不显式指定则下面板空白）
     lots = [t for t in fig.data if t.name == "position_lots"][0]
     assert lots.yaxis == "y2"
+    # 时间刻度画在最底面板（spec §2.1）：刻度配置在底轴且可见；
+    # 顶轴被 shared_xaxes 隐藏刻度
+    bottom = n_bottom = len(panels)
+    bx = fig.layout[f"xaxis{bottom}"] if bottom > 1 else fig.layout.xaxis
+    assert bx.showticklabels is not False                 # 底部轴刻度可见
+    assert bx.tickvals is not None and len(list(bx.tickvals)) > 5
+    assert fig.layout.xaxis.showticklabels is False       # 顶轴仍隐藏（不重复画刻度）
 
 def test_single_panel_unchanged():
     slots, panels, rep = _frame()

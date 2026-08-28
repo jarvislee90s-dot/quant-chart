@@ -114,9 +114,8 @@ def _build_multi(df, slots, panels, rep, title, row_heights):
         paper_bgcolor="white", plot_bgcolor="white",
         font=dict(family="Microsoft YaHei, Arial", size=12, color="#222"),
         margin=MARGIN,
+        # 顶轴被 shared_xaxes 隐藏刻度（showticklabels=False），刻度配置画在最底面板（spec §2.1）
         xaxis=dict(range=[-8, slots.n_all + 2.5], domain=[0.0, 0.845],
-                   tickvals=slots.tick_pos, ticktext=slots.tick_lab,
-                   tickangle=-90, tickfont=dict(size=9, color="#444"),
                    showgrid=False, zeroline=False, linecolor="#333"),
         yaxis=dict(range=[ylo, yhi], title=dict(text="价格（点）", font=dict(size=13)),
                    gridcolor="#dfe3ea", griddash="dot", zeroline=False, linecolor="#333"),
@@ -128,8 +127,14 @@ def _build_multi(df, slots, panels, rep, title, row_heights):
         cols = panels[i - 1].get("range_cols") or [s["col"] for s in panels[i - 1].get("layers", [])
                                                    if s.get("type") == "line" and "col" in s]
         lo, hi = _auto_range(df, cols or ["fut_close"])
-        fig.update_layout(**{f"xaxis{i}": dict(domain=[0.0, 0.845], showticklabels=False,
-                                               showgrid=False, zeroline=False),
+        is_bottom = i == n
+        xconf = dict(domain=[0.0, 0.845], showgrid=False, zeroline=False,
+                     showticklabels=bool(is_bottom))   # 仅最底面板画刻度（spec §2.1）
+        if is_bottom:
+            xconf.update(tickvals=slots.tick_pos, ticktext=slots.tick_lab,
+                         tickangle=-90, tickfont=dict(size=9, color="#444"),
+                         linecolor="#333", range=[-8, slots.n_all + 2.5])
+        fig.update_layout(**{f"xaxis{i}": xconf,
                              f"yaxis{i}": dict(range=[lo, hi],
                                                title=dict(text=panels[i - 1].get("y_title", "")),
                                                gridcolor="#dfe3ea", griddash="dot",
