@@ -4,6 +4,7 @@
 局部细节、扭曲整体趋势）；双轨始终平行、只允许小角度倾斜；宽度不是输入而是张合输出——
 每档斜率下两轨各自张合到压住窗口内的极值（press 分位容忍近似点），取宽度最小的斜率。
 """
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -40,8 +41,10 @@ def fit_channel(df, start, end, tilt=0.12, press=1.0) -> ChannelFit:
     hi = w["high"].to_numpy(dtype=float)
     lo = w["low"].to_numpy(dtype=float)
 
-    # ① 中枢：K 线中点 LSQ，趋势的角度与位置一次性锁定
-    s_mid, b_mid = np.polyfit(xs, (hi + lo) / 2, 1)
+    # ① 中枢：K 线中点 LSQ，趋势的角度与位置一次性锁定（退化短窗口的 RankWarning 静默——尽力拟合）
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*Polyfit.*")
+        s_mid, b_mid = np.polyfit(xs, (hi + lo) / 2, 1)
     x_c = float(xs.mean())
     y_c = s_mid * x_c + b_mid
 

@@ -13,6 +13,7 @@ class StrategyOutput:
     df: pd.DataFrame
     events: list = field(default_factory=list)      # list[Event]
     panels: list = field(default_factory=list)      # 默认面板配置（可被YAML覆盖合并）
+    notes: list = field(default_factory=list)       # 插件给脚注的回显（如事件式锚点解析结果）
 
 
 REGISTRY: dict = {}

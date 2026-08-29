@@ -177,3 +177,30 @@ def test_config_tick_anchor_invalid():
 def test_config_strict_range_non_bool():
     with pytest.raises(ConfigError, match="strict_range"):
         load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21], strict_range: yes-please}")
+
+
+def test_forecast_echo_and_no_false_visibility_warning(tmp_path):
+    text = CFG_TMPL.replace(
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}',
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}\n'
+        '    - {{type: text, at: [3.0, 7100], text: "pos标注"}}')
+    cfg = load_config(_write_cfg(tmp_path, text))
+    cfg["forecast_days"] = 12
+    fig, _ = run_pipeline(cfg)
+    texts = [a.text for a in fig.layout.annotations]
+    assert any("预测区: 12个工作日 ≈ 12根" in t for t in texts)
+    assert any("pos锚点" in t for t in texts)
+    assert not any("可见性警告" in t for t in texts)     # 正常配置零误报
+
+
+def test_visibility_guard_catches_out_of_range(tmp_path):
+    text = CFG_TMPL.replace(
+        "title: 测试日线端到端",
+        "title: 测试日线端到端\nforecast_days: 3").replace(
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}',
+        '    - {{type: tag, value: 7157, text: "7157", color: "#ff8c00"}}\n'
+        '    - {{type: text, at: [20.0, 7100], text: "超界元素"}}')
+    cfg = load_config(_write_cfg(tmp_path, text))   # 8根数据，xaxis右界=8+3+1.5=12.5；pos 20 超界
+    fig, _ = run_pipeline(cfg)
+    texts = [a.text for a in fig.layout.annotations]
+    assert any("可见性警告" in t and "超界" in t for t in texts)

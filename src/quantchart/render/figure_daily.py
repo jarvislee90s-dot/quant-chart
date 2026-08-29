@@ -36,14 +36,47 @@ def build_daily_figure(df, slots, panels, rep, title: str = "", notes=None,
         legend=dict(orientation="h", x=.5, xanchor="center", y=1.01, yanchor="bottom",
                     font=dict(size=11, color=DARK["font"]), bgcolor="rgba(0,0,0,0)"),
     )
+
+    # 渲染可见性守卫（P0）：Plotly 对超界元素静默裁剪——扫描全部数据坐标元素，
+    # 超出 xaxis 范围即在脚注警告（内置化后不再依赖每份验收清单复制守卫）。
+    vis = []
+    rng = fig.layout.xaxis.range
+    if rng:
+        left, right = float(rng[0]), float(rng[1])
+        for t in fig.data:
+            tx = getattr(t, "x", None)
+            if tx is None:
+                continue
+            xv = [v for v in tx if v is not None]
+            if xv and (max(xv) > right + 1e-6 or min(xv) < left - 1e-6):
+                nm = f"'{t.name}'" if getattr(t, "name", None) else t.type
+                vis.append(f"{nm} x∈[{min(xv):.0f},{max(xv):.0f}]")
+        for a in fig.layout.annotations:
+            if getattr(a, "xref", "x") == "paper":
+                continue
+            for v in [a.x] + ([a.ax] if getattr(a, "axref", None) == "x" else []):
+                if v is not None and (v > right + 1e-6 or v < left - 1e-6):
+                    vis.append(f"标注'{a.text or ''}'@{v:.1f}")
+        for sh in fig.layout.shapes:
+            if getattr(sh, "xref", "x") == "paper":
+                continue
+            for v in (sh.x0, sh.x1):
+                if v is not None and (v > right + 1e-6 or v < left - 1e-6):
+                    vis.append(f"形状@{v:.1f}")
+
+    parts = [rep.footnote()]
+    if notes:
+        parts.append(" ".join(notes))
+    if vis:
+        parts.append("⚠ 渲染可见性警告(超界元素成品中不可见): "
+                     + "；".join(vis[:3]) + ("等" if len(vis) > 3 else ""))
+    parts.append("时间轴仅含交易日（周末与节假日压缩）。")
     fig.add_annotation(x=.006, y=1.06, xref="paper", yref="paper", showarrow=False,
                        text=f"<b>{title}</b>", font=dict(size=20, color=DARK["font"]),
                        xanchor="left")
-    extra = " ".join(notes) if notes else ""
     fig.add_annotation(x=.998, y=-.128, xref="paper", yref="paper", showarrow=False,
                        xanchor="right", font=dict(size=10, color="#7a8494"),
-                       text=rep.footnote() + (" " + extra if extra else "")
-                       + " 时间轴仅含交易日（周末与节假日压缩）。")
+                       text=" ".join(parts))
     return fig
 
 

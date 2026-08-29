@@ -1,9 +1,40 @@
 """预设3：daily_candle —— 日线蜡烛同款复刻（深色）。只算不画，视觉交给通用原语。"""
+import pandas as pd
+
 from ..core.channel import fit_channel
 from ..core.plugins import StrategyOutput, register_strategy
 from ..render.theme import DARK
 
 ANN_TYPES = {"hline", "zone", "channel", "trendline", "arrow", "tag", "circle", "text"}
+
+
+def _resolve_anchor(df: pd.DataFrame, spec, kind: str):
+    """通道端点解析：日期字符串原样返回；规则式——{above/below: 价, after?: 起始日}
+    =该价位首破事件的那根 bar，{peak/trough: true} =窗口最高/最低价那根 bar。
+
+    解决"硬编码日期在数据刷新后错位"的坑：通道起止点绑定业务事件而非日历日期。
+    """
+    if isinstance(spec, str):
+        return spec
+    if not isinstance(spec, dict):
+        raise ValueError(f"通道{kind}锚点非法: {spec}（日期字符串，或 above/below/peak/trough 规则）")
+    keys = set(spec) - {"after"}
+    if "peak" in keys:
+        return df.loc[df["high"].idxmax(), "datetime"]
+    if "trough" in keys:
+        return df.loc[df["low"].idxmin(), "datetime"]
+    if "above" in keys:
+        cond, what = df["close"] > float(spec["above"]), f"首次收盘站上{spec['above']}"
+    elif "below" in keys:
+        cond, what = df["close"] < float(spec["below"]), f"首次收盘跌破{spec['below']}"
+    else:
+        raise ValueError(f"通道{kind}锚点规则非法: {spec}（可用: above/below 价位、peak/trough）")
+    hit = df[cond]
+    if "after" in spec:
+        hit = hit[hit["datetime"] >= pd.Timestamp(spec["after"])]
+    if hit.empty:
+        raise ValueError(f"通道{kind}锚点无命中: {spec}（数据窗口内未发生该事件）")
+    return hit["datetime"].iloc[0]
 
 
 @register_strategy("daily_candle")
@@ -25,11 +56,16 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
     layers += [{"type": "line", "col": f"ma{n}", "name": f"MA{n}",
                 "color": palette[i % len(palette)], "width": 1.2}
                for i, n in enumerate(ma)]
-    # 声明式通道：每条只写窗口+样式，两轨由 fit_channel 自动拟合（中枢主导三步法）
+    # 声明式通道：每条只写窗口+样式，两轨由 fit_channel 自动拟合（中枢主导三步法）。
+    # 窗口端点支持事件式锚定（peak/trough/above/below），数据刷新自动重锚，杜绝硬编码日期漂移。
+    ch_notes = []
     for k, c in enumerate(channels or []):
         if not isinstance(c, dict) or not c.get("start") or not c.get("end"):
-            raise ValueError(f"channels[{k}] 必须是含 start/end 的映射")
-        fit = fit_channel(df, c["start"], c["end"],
+            raise ValueError(f"channels[{k}] 必须是含 start/end 的映射"
+                             "（日期字符串，或 peak/trough/above/below 事件式锚点）")
+        start = _resolve_anchor(df, c["start"], "起点")
+        end = _resolve_anchor(df, c["end"], "终点")
+        fit = fit_channel(df, start, end,
                           tilt=float(c.get("tilt", 0.12)),
                           press=float(c.get("press", 1.0)))
         layers.append({"type": "channel",
@@ -38,6 +74,8 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
                        "lower": fit.d_lo, "upper": fit.d_hi,
                        "color": c.get("color", "#fdfd52"), "dash": c.get("dash", "dash"),
                        "line_width": c.get("line_width", 1.2), "label": c.get("label")})
+        if isinstance(c["start"], dict) or isinstance(c["end"], dict):
+            ch_notes.append(f"通道{k+1}锚点解析: {pd.Timestamp(start):%Y-%m-%d}→{pd.Timestamp(end):%Y-%m-%d}")
     for k, ann in enumerate(annotations or []):
         if not isinstance(ann, dict) or "type" not in ann:
             raise ValueError(f"annotations[{k}] 必须是含 type 的映射"
@@ -49,4 +87,5 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
         if a["type"] == "hline":
             a.setdefault("axis", "y")   # 分钟路径缺省 y2（贴水副轴），日线单面板注入主轴
         layers.append(a)
-    return StrategyOutput(df=df, events=[], panels=[{"title": "主图", "layers": layers}])
+    return StrategyOutput(df=df, events=[], notes=ch_notes,
+                          panels=[{"title": "主图", "layers": layers}])

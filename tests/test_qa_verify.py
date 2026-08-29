@@ -117,3 +117,26 @@ def test_l1_extras_line_shape_marker_and_ma():
     v2.expect_marker_at(6, 100.0)                              # x 差 4 > tol 3 → 违规
     v2.expect_ma_last("MA9", window=3)
     assert not v2.ok()
+
+
+def test_upper_wraps_symmetric_to_lower():
+    fig, df = _fig(), _df()
+    v = Verifier(fig, df)
+    v.expect_upper_wraps(df, "#39d353", [(1.0, 111.0), (4.0, 119.0)])   # 高点在上轨下方
+    assert v.ok()
+    v2 = Verifier(fig, df)
+    v2.expect_upper_wraps(df, "#39d353", [(1.0, 121.0)])                # 刺穿上轨 → 违规
+    assert not v2.ok()
+
+
+def test_left_quarter_and_forecast_zone_helpers():
+    df = _df()                                                          # 6 根
+    v = Verifier(_fig(), df)
+    v.expect_in_left_quarter(1.0, name="大字")
+    v.expect_in_forecast_zone(6.5, name="预演")
+    assert v.ok()
+    v2 = Verifier(_fig(), df)
+    v2.expect_in_left_quarter(5.0, name="大字")                          # 5 > 6/4+2 → 违规
+    v3 = Verifier(_fig(), df)
+    v3.expect_in_forecast_zone(5.0, name="预演")                          # 5 ≤ 6 不在预测区
+    assert not v2.ok() and not v3.ok()

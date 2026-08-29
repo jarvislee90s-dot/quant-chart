@@ -112,3 +112,30 @@ def test_channels_param_requires_start_end():
     load_plugins()
     with pytest.raises(ValueError, match=r"channels\[0\]"):
         get_strategy("daily_candle")(_intraday_plugin_df(), None, channels=[{"color": "#fff"}])
+
+
+def test_channels_rule_anchor_peak_and_breakout():
+    load_plugins()
+    df = _intraday_plugin_df(bars_per_day=4, days=30)
+    peak_dt = df.loc[df["high"].idxmax(), "datetime"]
+    out = get_strategy("daily_candle")(df, None,
+                                       channels=[{"start": {"peak": True},
+                                                  "end": {"above": 2.5, "after": str(peak_dt.date())},
+                                                  "color": "#39d353"}])
+    ch = [l for l in out.panels[0]["layers"] if l["type"] == "channel"]
+    assert len(ch) == 1
+    assert any("锚点解析" in n for n in out.notes)
+
+
+def test_channels_rule_anchor_no_hit():
+    load_plugins()
+    with pytest.raises(ValueError, match="无命中"):
+        get_strategy("daily_candle")(_intraday_plugin_df(), None,
+                                     channels=[{"start": "2026-06-01", "end": {"above": 99999.0}}])
+
+
+def test_channels_rule_anchor_invalid():
+    load_plugins()
+    with pytest.raises(ValueError, match="锚点规则非法"):
+        get_strategy("daily_candle")(_intraday_plugin_df(), None,
+                                     channels=[{"start": {"sideways": True}, "end": "2026-07-01"}])

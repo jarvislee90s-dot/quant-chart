@@ -78,7 +78,7 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
 
     # 周期校验（granularity 显式时，数据推断与指定必须一致）；auto 时回显推断值
     bpd = slots.n_all / max(1, len(slots.day_span))
-    notes = []
+    notes = list(out.notes)
     if gran != "auto":
         expected = GRANULARITY_BPD[gran]
         if abs(bpd - expected) > max(1.0, expected * 0.15):
@@ -87,6 +87,9 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
                              "——请修正 input.granularity 或检查数据")
     else:
         notes.append(f"周期自动推断: 每交易日约{bpd:.0f}根")
+    fd = cfg.get("forecast_days")
+    if fd is not None:
+        notes.append(f"预测区: {fd:g}个工作日 ≈ {fd * bpd:.0f}根")
 
     panels = merge_panels(out.panels, cfg.get("panels"), cfg.get("extra_panels"))
     panels = [{**p, "layers": _wire_events(p.get("layers", []), out.events)}

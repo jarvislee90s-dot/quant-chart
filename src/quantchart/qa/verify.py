@@ -114,6 +114,29 @@ class Verifier:
             if price < rail_at - 5.0:
                 self._fail("L3", f"低点 ({pos},{price}) 跌破下轨({rail_at:.1f})")
 
+    def expect_upper_wraps(self, df, color, points, tol=5.0):
+        """上轨必须压住指定高点 (pos, 价)（高点 ≤ 上轨 + tol）。与 expect_lower_wraps 对称。"""
+        rails = self._by_color(color)
+        if not rails:
+            return self._fail("L3", "上轨缺失，无法校验包裹")
+        t = rails[-1]                                   # 通道原语先画下轨后画上轨
+        for pos, price in points:
+            rail_at = t.y[0] + (t.y[1] - t.y[0]) / (t.x[1] - t.x[0]) * (pos - t.x[0])
+            if price > rail_at + tol:
+                self._fail("L3", f"高点 ({pos},{price}) 刺穿上轨({rail_at:.1f}+{tol})")
+
+    def expect_in_left_quarter(self, x, name="", tol=2.0):
+        """元素 x 须位于图幅左侧四分之一区（0..len(df)/4），替代手写硬编码区间。"""
+        n = len(self.df)
+        if not (0 <= x <= n / 4 + tol):
+            self._fail("L2", f"{name} x={x} 不在左四分之一区（0..{n / 4:.0f}±{tol}）")
+
+    def expect_in_forecast_zone(self, x, name="", tol=1.0):
+        """元素 x 须位于右缘预测区（最后K线之后）。"""
+        n = len(self.df)
+        if not (n < x <= n + 60):
+            self._fail("L2", f"{name} x={x} 不在预测区（{n}..{n + 60}）")
+
     def expect_span(self, y_a, y_b, label, tol=1.0):
         """区间宽度类标注：|标注数值 − 两轨/两线同一 x 处差值| ≤ tol。"""
         if abs((y_a - y_b) - label) > tol:

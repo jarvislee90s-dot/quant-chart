@@ -71,13 +71,15 @@ flowchart LR
 
 - 关键函数：`build_daily_figure(df, slots, panels, rep, title) -> go.Figure`
 - 布局契约：深底浅网格（色值集中 `theme.DARK`，原语缺省色一律引用常量防漂移，测试以哨兵色守护）；右缘留白容纳 tag 药丸；xaxis 右界 = `n_all + FORECAST_DAYS × bars_per_day + 1.5`（`FORECAST_DAYS = 2`，为三情形预演折线腾出预测区；日线图退化为 +2 格）；标题/脚注 annotation，脚注为条形数据口径
-- **脚注回显（出图前自检清单）**：数据来源、交易日数、**每交易日根数与周期标签**、周期自动推断值、**pos 锚点标注计数**（换数据需重校的隐患显性化）、覆盖提示——控制台与成品图同源可见
+- **脚注回显（出图前自检清单）**：数据来源、交易日数、**每交易日根数与周期标签**、周期自动推断值、**pos 锚点标注计数**（换数据需重校的隐患显性化）、覆盖提示、**预测区单位换算**（"N 工作日 ≈ M 根"）——控制台与成品图同源可见
+- **渲染可见性守卫（内置）**：出图后扫描全部数据坐标元素（traces/annotations 含箭尾/shapes），超出 xaxis 范围即在脚注追加"⚠ 渲染可见性警告"——Plotly 对超界元素静默裁剪（第二批次的 Critical 坑），守卫内置后不再依赖每份验收清单复制
 
 ### FR-5 策略插件 daily_candle
 
 - 签名：`run(df, slots, ma=[5,10,20,30,60], ma_unit="day", annotations=None, channels=None, **params)`
 - **均线默认按工作日换算**：`bars_per_day = len(df)/唯一日期数`；频率高于日线时窗口 = `n × bars_per_day`（15 分钟下 [5,10,20,30,60] → [80,160,320,480,960] 根，即 5/10/20/30/60 个工作日）；`ma_unit: "bar"` 特别约定按根数；窗口超出数据长度时画 partial（不静默截断，如 ma60 仅末段）
 - **channels 自动拟合**：每条 `{start, end, tilt, press, color, dash, label}` → 调 `fit_channel` 产出通道图层（中枢端点+下探/上张量）
+- **事件式锚定**：start/end 除日期字符串外支持规则式——`{peak/trough: true}`（窗口最高/最低价那根 bar）、`{above/below: 价, after?: 起始日}`（该价位首破事件）；解析结果回显脚注，无命中/非法规则中文报错——通道起止绑定业务事件，数据刷新自动重锚，杜绝硬编码日期漂移
 - **annotations**：声明式标注列表（FR-3 各类型），插件逐条校验（未知 type/缺参数 → 中文报错定位条目序号）
 - `trades` 不支持于日线模式：配置了明确报错，接口保留
 
@@ -99,7 +101,18 @@ flowchart LR
 | XAU 伦敦金现货日线 | akshare `futures_foreign_hist` | ✅ 5186 交易日（2006→当日），无量 |
 | CU0 / TL0 日线 | 同期货接口 | 二期使用，机制通用 |
 
-## 5. 出图前参数确认清单（交互约定）
+## 5. 出图自检（qa.verify，三层机器验收）
+
+出图自检是**通用能力**：`quantchart.qa.verify::Verifier(fig, df)` 对成品 fig 做三层机器断言，另配 CLI `tools/verify_chart.py`。
+
+- **L1 要素层**：蜡烛涨跌色、通道轨数、水平线数量、文字在场（按颜色/文字子串定位）；
+- **L2 相对位置层**：标记落在锚点 ±tol、预测区元素整体位于最后 K 线右侧、元素位于图幅左四分之一区/预测区（`expect_in_left_quarter`/`expect_in_forecast_zone`，按 n_all 动态计算）；
+- **L3 数学关系层**：双轨平行（±1e-6）、下轨压住指定低点带（`expect_lower_wraps`）、上轨压住指定高点带（`expect_upper_wraps`）、价差标注 == 跨线差值（±tol）、MA 末值 == rolling 末值（±1e-6）；
+- **R 渲染保真**：fig 通道轨坐标 == `fit_channel` 重算输出（±tol）——防"算出来的对、画出来的错"（第一批次 447 点偏移教训）。
+
+每图一份验收清单（`tests/acceptance_checks/<图>.py` 的 `run(fig, df, rep, cfg) -> Verifier`），由 `tests/test_acceptance_charts.py` parametrize 装载（CSV 缺席自动 skip）。任何一条违规即图不可交付。
+
+## 5b. 出图前参数确认清单（交互约定）
 
 作图前若以下参数未明确，先向用户确认、不猜测（CLI 层对应"推断回显+矛盾报错"）：
 
@@ -111,14 +124,18 @@ flowchart LR
 | 4 | 关键位阶（支撑/压力/目标位） | 可选，提取后回显 |
 | 5 | 输出（PNG/HTML 路径、对照图） | 有默认值 |
 
-## 6. 一期验收（已达成）
+## 6. 已知暂缓事项
+
+探索中发现、暂不实现的问题统一登记在 `docs/backlog/README.md`（如通道自动分段器、R 检查带状灵敏度等）——触发条件成熟后再立项。
+
+## 7. 一期验收（已达成）
 
 1. `pytest -q` 全绿，既有分钟测试零修改零失败；
 2. `chartflow run configs/daily_candle.yaml -o out/daily_candle_IM.png --html out/daily_candle_IM.html` 成功，脚注条形口径；
 3. 与 `reference/05_IM2612合约.png` 并排目视：深色蜡烛红涨青跌、工作日均线×5、三条水平支撑压力线（6460.9/6999.8/7560）+右缘药丸、黄/绿双通道、区间宽度箭头（560/539 点）、①②③④圆圈、BULL/BEAR/BASE 走势预演、大字标注、高低点价签；
 4. 换品种/换周期仅改 YAML，零代码改动。
 
-## 7. 已知限制与后续
+## 8. 已知限制与后续
 
 - 免费源 15 分钟深度约 1023 根（≈64 交易日），更长窗口需 Wind 导出 Excel 补数；
 - XAU 无量：volume 可选语义未实现（二期前置任务）；
