@@ -105,5 +105,6 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
     if not title:
         title = (f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}"
                  f"–{cfg['input'].get('range', ['',''])[1]}）")
-    fig = build_daily_figure(out.df, slots, panels, rep, title=title, notes=notes)
+    fig = build_daily_figure(out.df, slots, panels, rep, title=title, notes=notes,
+                             forecast_days=cfg.get("forecast_days"))
     return fig, rep

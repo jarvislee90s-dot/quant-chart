@@ -118,6 +118,18 @@ def test_extra_panels_rejected(tmp_path):
     cfg["extra_panels"] = [{"title": "副图", "layers": []}]
     with pytest.raises(ValueError, match="单面板"):
         run_pipeline(cfg)
+def test_forecast_days_config_extends_axis(tmp_path):
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["forecast_days"] = 15
+    fig, _ = run_pipeline(cfg)
+    assert fig.layout.xaxis.range[1] == pytest.approx(8 + 15 * 1 + 1.5)   # 8日×15工作日+1.5
+
+
+def test_config_forecast_days_invalid():
+    with pytest.raises(ConfigError, match="forecast_days"):
+        load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21]}\nforecast_days: -3")
+
+
 def test_build_daily_figure_forecast_room():
     df = _daily_df(10)                          # 日线：bars_per_day=1 → 右界 = 10+2+1.5
     slots = build_daily_slots(df)

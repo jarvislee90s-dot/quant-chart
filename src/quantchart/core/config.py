@@ -62,6 +62,9 @@ def load_config(path: str) -> dict:
                 raise ConfigError(f"input.mode={mode} 需要 input.range（起止日期，分钟深度校验用）")
     if not isinstance(cfg.get("params", {}), dict):
         raise ConfigError("params 必须是键值映射")
+    fd = cfg.get("forecast_days")
+    if fd is not None and (isinstance(fd, bool) or not isinstance(fd, (int, float)) or fd <= 0):
+        raise ConfigError("forecast_days 必须是正数（右缘预测区的工作日数）")
     if not isinstance(cfg.get("panels", []), list):
         raise ConfigError("panels 必须是列表")
     trades = cfg.get("trades")

@@ -6,10 +6,11 @@ from .primitives import Ctx, draw
 from .theme import DARK
 
 
-FORECAST_DAYS = 2   # 右缘预测区：为三情形预演折线留出的工作日数（同原报告画法）
+FORECAST_DAYS = 2   # 右缘预测区缺省工作日数（可用配置 forecast_days 每图覆盖，如日线图 10-15）
 
 
-def build_daily_figure(df, slots, panels, rep, title: str = "", notes=None) -> go.Figure:
+def build_daily_figure(df, slots, panels, rep, title: str = "", notes=None,
+                       forecast_days: float | None = None) -> go.Figure:
     if len(panels) != 1:
         raise ValueError(f"日线模式暂仅支持单面板（收到 {len(panels)} 个）")
     fig = go.Figure()
@@ -19,12 +20,13 @@ def build_daily_figure(df, slots, panels, rep, title: str = "", notes=None) -> g
         draw(fig, spec, ctx)
 
     bars_per_day = len(df) / max(1, len(slots.day_span))
+    fc_days = FORECAST_DAYS if forecast_days is None else float(forecast_days)
     fig.update_layout(
         template="none", width=1600, height=900, autosize=False,
         paper_bgcolor=DARK["bg"], plot_bgcolor=DARK["bg"],
         font=dict(family="Microsoft YaHei, Arial", size=12, color=DARK["font"]),
         margin=dict(l=64, r=150, t=92, b=88),
-        xaxis=dict(range=[-2, slots.n_all + FORECAST_DAYS * bars_per_day + 1.5],
+        xaxis=dict(range=[-2, slots.n_all + fc_days * bars_per_day + 1.5],
                    tickvals=slots.tick_pos, ticktext=slots.tick_lab,
                    tickfont=dict(size=10, color=DARK["font"]),
                    showgrid=False, zeroline=False, linecolor=DARK["axis"],

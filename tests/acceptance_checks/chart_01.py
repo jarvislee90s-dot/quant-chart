@@ -1,13 +1,14 @@
 """01 伦敦金现货（XAU 日线）三层验收清单（对照 reference/01，数值均经 zoom 读图确认+数据交叉验证）。
 
-L1 要素：深色蜡烛红涨青跌；MA×5（字面根数）；周线级别下降通道（黄绿虚线成对）；
+L1 要素：深色蜡烛红涨青跌；MA×4（10/20/60/120 日，第八轮换血）；周线级别下降通道（黄绿虚线成对）；
         水平线×3+右缘药丸×3（4841.255/4384.642/3928.818）；多空分界（黄字+红↑绿↓）；
         区间价差红竖箭头×2+蓝字×2（455USD）；BULL/BEAR；大字"伦敦金现货"（红）；
         历史高点价签 5598.750（红字+灰白小箭头）；通道标签"周线级别下降通道"（亮绿大字）。
 L2 相对位置：药丸与水平线同高（±3）；多空分界文字距中线（±30）；价差箭头整体位于相邻两水平线所夹区域；
         BULL/BEAR 在最后K线右侧预测区；高点价签锚在数据最高K线（±5根/±30点）；大字不压K线密集区。
 L3 数学：通道两轨平行且==fit_channel 重算（渲染保真）；下轨包裹窗口最深低点；上轨压住峰值高点；
-        价差标注数值==箭头两端 y 差（±2）；MA5/10/20/30/60 末值==rolling 末值（±1e-6）。
+        价差标注数值==箭头两端 y 差（±2）；MA10/20/60/120 末值==rolling 末值（±1e-6）。
+第八轮：通道窗口=2026-02-01→08-10（首破4384.642处）、tilt=0.2；预测区 15 个工作日。
 """
 import pandas as pd
 
@@ -97,16 +98,23 @@ def run(fig, df, rep, cfg) -> Verifier:
             v._fail("L2", f"大字 y={big[0].y} 压到 K 线密集区（窗口最低 {w['low'].min():.1f}）")
 
     # ── L3 数学关系层 ──
-    fit = fit_channel(d, "2026-01-29", "2026-08-28", tilt=0.12, press=1.0)
+    fit = fit_channel(d, "2026-02-01", "2026-08-10", tilt=0.2, press=1.0)
     v.expect_render_matches_fit(CHAN_COLOR, fit, tol=3.0)     # R 渲染保真（与 expect_lower_wraps 成对使用）
     v.expect_parallel(CHAN_COLOR)
-    v.expect_lower_wraps(d, CHAN_COLOR, [(143.0, 4099.02), (214.0, 3960.10)])
+    # 下轨包裹：窗口内最深 2 个低点（动态取，数据刷新自维护）
+    w = d[(d["datetime"] >= "2026-02-01") & (d["datetime"] <= "2026-08-10")]
+    deep = w.nsmallest(2, "low")
+    v.expect_lower_wraps(d, CHAN_COLOR, list(zip(deep["pos"], deep["low"])))
     rails = sorted([t for t in fig.data
                     if t.type == "scatter" and getattr(t.line, "color", None) == CHAN_COLOR],
                    key=lambda t: t.y[0])
     if len(rails) >= 2:
-        if abs(float(rails[-1].y[0]) - PEAK_HIGH) > 5:        # 上轨 ≥ 窗口内最高高点（±5）
-            v._fail("L3", f"上轨起点 {rails[-1].y[0]:.1f} 未压住峰值 {PEAK_HIGH}(±5)")
-    for name, window in (("MA5", 5), ("MA10", 10), ("MA20", 20), ("MA30", 30), ("MA60", 60)):
+        # 上轨压住窗口内全部高点（陡降通道的上轨起点天然高于窗口最高价，故查包裹而非起点值）
+        xs_w = w["pos"].to_numpy(dtype=float)
+        upper_at = float(rails[-1].y[0]) + fit.slope * (xs_w - float(rails[-1].x[0]))
+        gap_hi = float((w["high"].to_numpy(dtype=float) - upper_at).max())
+        if gap_hi > 5:
+            v._fail("L3", f"有高点刺穿上轨（最大超出 {gap_hi:.1f} > 5）")
+    for name, window in (("MA10", 10), ("MA20", 20), ("MA60", 60), ("MA120", 120)):
         v.expect_ma_last(name, window)
     return v
