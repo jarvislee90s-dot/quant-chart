@@ -2,6 +2,7 @@ input:
   mode: daily_csv
   csv: data/IM2612_15min.csv
   range: [2026-06-01, 2026-08-28]
+project: out/projects/im2612_15min
 strategy: daily_candle
 title: "IM2612 合约 · 15分钟策略同款复刻（样板）"
 params:

@@ -65,6 +65,9 @@ def load_config(path: str) -> dict:
     fd = cfg.get("forecast_days")
     if fd is not None and (isinstance(fd, bool) or not isinstance(fd, (int, float)) or fd <= 0):
         raise ConfigError("forecast_days 必须是正数（右缘预测区的工作日数）")
+    proj = cfg.get("project")
+    if proj is not None and (not isinstance(proj, str) or not proj.strip()):
+        raise ConfigError("project 必须是非空字符串路径（项目归档文件夹：config 快照/PNG/HTML/refs）")
     if not isinstance(cfg.get("panels", []), list):
         raise ConfigError("panels 必须是列表")
     trades = cfg.get("trades")

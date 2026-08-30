@@ -273,7 +273,7 @@ flowchart TD
     C -- "不足/不符" --> C2["调整窗口 / 补数 / 修正 granularity"] --> B
     C -- "通过" --> D["④ 读图三步（有样张时）<br/>zoom 逐个确认位阶 → 数据极值交叉验证 → 原文文字优先<br/>证据存 out/refs/"]
     D --> E["⑤ 写 YAML<br/>channels（支持 peak/trough/above/below 事件式锚定）<br/>+ annotations + ma + granularity + forecast_days"]
-    E --> F["⑥ 出图 chartflow run<br/>脚注回显：周期推断/每交易日根数/pos锚点计数/预测区换算/可见性警告"]
+    E --> F["⑥ 出图 chartflow run --project<br/>一图一文件夹归档：config快照/PNG/HTML/refs/compare<br/>脚注回显：周期推断/每交易日根数/pos锚点/预测区换算/可见性警告"]
     F --> G["⑥b 三层机器验收 qa.verify<br/>L1要素 · L2相对位置 · L3数学 · R渲染保真"]
     G -- "违规（回路①校准）" --> E
     G -- "全过" --> H["⑦ 目检对照<br/>成品 vs 样张并排 zoom 走查"]
@@ -289,7 +289,17 @@ flowchart TD
 - **回路②（要素）**：目检发现样张有而成品没有的要素（或错位）回 YAML 补齐——窗口扩展后此前"窗外"的元素也要回归（如国债两年窗的 122.28/108.61）；
 - **回路③（评审）**：独立第三方视角判定差异幅度，"差异大"须分析原因（数据窗口/标定/遗漏/bug）后回到 ⑤；
 - **脚注回显**是每轮回路的自检信号：周期推断、每交易日根数、pos 锚点计数、预测区换算、可见性警告——错在脚注上第一眼可见；
-- 无样张的全新图：跳过 ④⑦ 的样张对照，位阶由用户口述或读数提取后同样交叉验证。
+- 无样张的全新图：跳过 ④⑦ 的样张对照，位阶由用户口述或读数提取后同样交叉验证；
+- **一图一项目文件夹**（防覆盖）：YAML 顶层 `project: out/projects/<图名>`（或 CLI `--project`）——
+  PNG/HTML 默认落 `<project>/chart.png|html`，**运行时自动归档 config 快照**（configs/ 仍为权威源），
+  zoom 证据放 `<project>/refs/`、对照图 `compare.png`。每张图的一切产物自包含，后画的图永不覆盖前面的：
+  ```text
+  out/projects/chart_02_cu0/
+  ├── config.yaml      # 运行时配置快照（权威源在 configs/）
+  ├── chart.png / chart.html
+  ├── compare.png      # 成品 vs 样张并排
+  └── refs/            # 读图 zoom 证据
+  ```
 
 ### 最小 YAML 示例（摘自 configs/daily_candle.yaml 头部）
 
@@ -298,14 +308,14 @@ flowchart TD
 出图后可对「配置 + 成品图」跑机器断言的验收清单——L1 要素齐备 / L2 相对位置 / L3 数学+渲染保真，清单以 python 函数形式随测试交付：
 
 ```bash
-.venv/bin/python tools/verify_chart.py configs/chart_01_xau.yaml out/chart_01_xau.png --checks tests/acceptance_checks/chart_01.py
+.venv/bin/python tools/verify_chart.py configs/chart_01_xau.yaml out/projects/chart_01_xau/chart.png --checks tests/acceptance_checks/chart_01.py
 ```
 
 通过时输出「验收通过: …（0 违规）」。三张样张复刻各配一份成品清单：`tests/acceptance_checks/chart_0{1,2,3}.py`（伦敦金 / 沪铜 / 国债）。
 
 ### 读图证据约定（`out/refs/`）
 
-复刻样张定数值时，关键读数（药丸价格、高低点价签、通道走向等）一律放大截图留证于 `out/refs/<图名>/`，坐标标定依据与逐字确认结论写在对应配置文件头部注释——后续改数可追溯、可复核。
+复刻样张定数值时，关键读数（药丸价格、高低点价签、通道走向等）一律放大截图留证于**项目文件夹** `refs/`（即 `out/projects/<图名>/refs/`），坐标标定依据与逐字确认结论写在对应配置文件头部注释——后续改数可追溯、可复核。
 
 ### 通道窗口事件式锚定：绑定业务事件，不绑定日历
 

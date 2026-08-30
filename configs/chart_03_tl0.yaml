@@ -37,6 +37,7 @@ input:
   mode: daily_csv
   csv: data/tl0_daily.csv
   range: [2024-09-01, 2026-08-28]
+project: out/projects/chart_03_tl0
 strategy: daily_candle
 forecast_days: 15                 # 第八轮：右缘预测区 15 个空白工作日（xaxis 右界 = 241+30+1.5 = 272.5）
 title: "30年国债期货TL · 日线策略同款复刻"

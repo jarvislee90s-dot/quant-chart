@@ -14,6 +14,7 @@ input:
   mode: daily_csv
   csv: data/xau_daily.csv
   range: [2025-09-01, 2026-08-28]
+project: out/projects/chart_01_xau
 strategy: daily_candle
 title: "伦敦金现货 · 日线策略同款复刻"
 forecast_days: 15                 # 右缘预测区 15 个空白工作日（第八轮：给 BULL/BEAR 预演留作图空间）
