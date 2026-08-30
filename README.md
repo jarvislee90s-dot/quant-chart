@@ -1,6 +1,6 @@
 # quant-chart
 
-**YAML 驱动的行情图工作流**：准备好数据两表、改几行配置，一条命令产出研报级行情图（PNG）和可缩放交互图（HTML）。内置中证1000股指期货贴水监控两套预设，贴水、击球区、买卖观察窗等要素开箱即用。
+**YAML 驱动的行情图工作流**：准备好数据两表、改几行配置，一条命令产出研报级行情图（PNG）和可缩放交互图（HTML）。内置中证1000股指期货贴水监控两套预设，贴水、击球区、买卖观察窗等要素开箱即用；另含**深色策略蜡烛图产品线**（日线/日内，`daily_candle` 预设：红涨青跌 K 线 + 工作日均线 + 自动拟合通道 + 8 类声明式标注），见「五之二」。
 
 ![basis_zones 效果图](docs/images/basis_zones_example.png)
 
@@ -26,6 +26,8 @@ flowchart LR
     RD --> OUT2["HTML 交互图 · 缩放悬停"]
 ```
 
+以上为**分钟级贴水管线**；深色策略蜡烛图（日线/日内条形）走 `daily_*` 旁路管线（条形 CSV / 期货主连日线 → 条形槽位 → `daily_candle` 插件 → 深色主题组装，含通道自动拟合与出图自检），数据流与用法见「五之二」。
+
 ### 1.2 三层配置理念：改需求只动对应的层
 
 | 你想改什么 | 动哪里 | 举例 |
@@ -46,8 +48,9 @@ quant-chart/
 │   ├── core/              # ②③ 槽位引擎 / 指标 / 信号 / 插件注册 / 流水线
 │   ├── render/            # ④ Plotly 原语翻译与面板组装
 │   └── plugins/           # 策略插件（basis_review / basis_zones）
-├── tests/                 # 单测 + 真实数据回归
-└── docs/                  # 设计文档 / 实施计划 / 图片
+├── tests/                 # 单测 + 真实数据回归 + 三图三层验收（acceptance_checks/）
+├── tools/                 # fetch_daily 取数 · verify_chart 出图自检 CLI
+└── docs/                  # 设计文档 / 实施计划 / 待办 backlog/ / 图片
 ```
 
 ---
@@ -254,6 +257,30 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 
 复刻样张定数值时，关键读数（药丸价格、高低点价签、通道走向等）一律放大截图留证于 `out/refs/<图名>/`，坐标标定依据与逐字确认结论写在对应配置文件头部注释——后续改数可追溯、可复核。
 
+### 通道窗口事件式锚定：绑定业务事件，不绑定日历
+
+`channels` 的 `start`/`end` 除日期字符串外，支持**事件式锚点**——数据刷新自动重锚，杜绝硬编码日期漂移：
+
+| 锚点 | 含义 | 示例 |
+|---|---|---|
+| `{peak: true}` | 窗口内最高价那根 bar | `start: {peak: true}`（自峰值引出下降通道） |
+| `{trough: true}` | 窗口内最低价那根 bar | `end: {trough: true}` |
+| `{above: 价, after?: 日}` | 首次**收盘站上**该价位（可限定起始日） | `end: {above: 4384.642, after: "2026-06-30"}`（回升首破=通道终点） |
+| `{below: 价, after?: 日}` | 首次**收盘跌破**该价位 | `end: {below: 108.61}` |
+
+解析结果自动回显脚注（如「通道1锚点解析: 2025-02-07→2026-08-10」）；数据窗口内未发生该事件、或规则非法，中文报错定位。
+
+### 均线工作日换算与预测区
+
+- **均线默认按工作日**：日内周期下 `params.ma` 的 N = N 个**工作日**（15 分钟图 `ma: 5` = 16×5 = 80 根）；`ma_unit: "bar"` 特别约定按根数。窗口超数据长度时如实画 partial（不静默截断）。
+- **右缘预测区**：`forecast_days`（顶层，单位**工作日**，默认 2）——为 BULL/BEAR 走势预演留出右侧空白作图区；日线策略图建议 10–15。脚注回显换算（"预测区: 15个工作日 ≈ 15根"）。
+- **内置渲染可见性守卫**：任何元素超出 xaxis 范围（Plotly 会静默裁剪、图上不可见）都会在脚注追加"⚠ 渲染可见性警告"——写错坐标当场可见，不靠人眼发现。
+
+### 验收清单与待办
+
+- 每幅样张复刻图配一份**三层验收清单**（`tests/acceptance_checks/<图>.py`，L1 要素 / L2 相对位置 / L3 数学关系 + 渲染保真），由 `tests/test_acceptance_charts.py` parametrize 装载，`chartflow` 出图后跑一遍即机器验收；
+- 发现但暂不解决的问题登记在 [`docs/backlog/README.md`](docs/backlog/README.md)（如通道自动分段器——拟合主观性强，需人工先指定段边界）。
+
 ### 最小 YAML 示例（摘自 configs/daily_candle.yaml 头部）
 
 ```yaml
@@ -285,6 +312,9 @@ params:
 | `时间点不在数据中: 2026-08-22 13:00` | `zones` 的 from/to 写在非交易日、非交易时段或数据区间外 | 改成区间内实际存在的交易分钟 |
 | kaleido / Chrome 相关报错 | 静态导出缺 Chrome | 安装 Chrome 后重试 |
 | 脚注“前值填充N分钟” | 数据里个别分钟缺失，已自动用前值填充 | 无需处理；若 N 异常大，检查 Wind 导出是否断档 |
+| `周期校验失败: 数据推断每交易日约 N 根…` | 日线模式下 `input.granularity` 与数据实际粒度不符 | 修正 `granularity` 或检查数据；不确定就用默认 `auto` |
+| `通道X锚点无命中: …（数据窗口内未发生该事件）` | 事件式锚点（above/below）的价位在窗口内未发生 | 核对价位或放宽窗口；亦可用日期字符串直接锚定 |
+| 脚注“⚠ 渲染可见性警告(超界元素成品中不可见)…” | 标注/元素坐标超出 xaxis 范围（图上被裁剪） | 按警告列出的元素修正坐标；pos 锚点注意不要超过交易日数 |
 
 ## 七、进阶：写一个新策略插件
 
@@ -312,5 +342,6 @@ pytest tests/test_regression.py -q # 真实数据回归（默认读 Backset 目�
 ```
 
 - [设计文档](docs/superpowers/specs/2026-08-27-quant-chart-design.md) · [实施计划](docs/superpowers/plans/2026-08-27-quant-chart-mvp.md) · [偏差与已知问题 DEVIATIONS.md](DEVIATIONS.md)
+- 深色蜡烛图产品线：[第一篇·通用作图能力](docs/superpowers/specs/2026-08-28-daily-candle-charting-design.md) · [第二批次·剩余三图复刻](docs/superpowers/specs/2026-08-29-three-reference-charts-design.md) · [实施计划](docs/superpowers/plans/2026-08-29-three-reference-charts-batch2.md) · [待办与暂缓事项](docs/backlog/README.md)
 - 三期候选（DEVIATIONS 在案）：规则生成器（条件→仓位模拟） · API+Excel 区间拼接 · 期权/ETF 品类 · 回测联动
 - 效果图更新：改图后运行 `python tools/annotate_readme_fig.py` 重新生成图例标注版
