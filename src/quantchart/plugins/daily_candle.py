@@ -38,7 +38,10 @@ def _resolve_anchor(df: pd.DataFrame, spec, kind: str):
 
 
 @register_strategy("daily_candle")
-def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **params):
+def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None,
+        volume_panel=False, **params):
+    if not isinstance(volume_panel, bool):
+        raise ValueError("volume_panel 必须是布尔值（params.volume_panel: true 追加成交量子图）")
     ma = [int(n) for n in (ma or [5, 10, 20, 30, 60])]
     if any(n <= 0 for n in ma) or len(set(ma)) != len(ma):
         raise ValueError(f"ma 必须为正整数且不重复: {ma}")
@@ -87,5 +90,12 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
         if a["type"] == "hline":
             a.setdefault("axis", "y")   # 分钟路径缺省 y2（贴水副轴），日线单面板注入主轴
         layers.append(a)
-    return StrategyOutput(df=df, events=[], notes=ch_notes,
-                          panels=[{"title": "主图", "layers": layers}])
+    panels = [{"title": "主图", "layers": layers}]
+    if volume_panel:
+        # 成交量子图：多面板体系下的一种面板类型（与日内 extra_panels 同一机制，
+        # 此处为最常用路径提供一键声明）；无量品种不追加空面板（适配器脚注已提示）
+        if "volume" in df and df["volume"].notna().any():
+            panels.append({"title": "成交量", "y_title": "成交量",
+                           "range_cols": ["volume"],
+                           "layers": [{"type": "volume", "col": "volume"}]})
+    return StrategyOutput(df=df, events=[], notes=ch_notes, panels=panels)

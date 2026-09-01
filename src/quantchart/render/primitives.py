@@ -294,6 +294,28 @@ def _text(fig, spec, ctx):
                        bgcolor=spec.get("bgcolor"), borderpad=2 if spec.get("bgcolor") else 0)
 
 
+def _volume(fig, spec, ctx):
+    """成交量子图柱：红涨青跌（与K线同色语义，色值缺省取 theme.DARK，可配 up/down 覆盖）。
+
+    x=pos 数值轴——多面板 shared_xaxes 时与主图逐柱对齐；量柱面板纵轴下限锁 0
+    （figure_daily._panel_range zero_floor）。无量（列缺失/全 NaN）自动省略不画，
+    适配器已在脚注给"无量"提示。
+    """
+    col = spec.get("col", "volume")
+    if col not in ctx.df or not ctx.df[col].notna().any():
+        return
+    for c in ("open", "close"):        # 涨跌配色依赖 OHLC 规范宽表
+        if c not in ctx.df:
+            raise ValueError(f"volume 原语需要 '{c}' 列判涨跌（日线规范宽表必含 OHLC）")
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    c_up, c_down = spec.get("up", DARK["up"]), spec.get("down", DARK["down"])
+    colors = [c_up if u else c_down for u in (ctx.df["close"] >= ctx.df["open"])]
+    fig.add_trace(go.Bar(x=ctx.df["pos"], y=ctx.df[col], yaxis=yax,
+                         width=spec.get("width", 0.8),
+                         marker=dict(color=colors, opacity=spec.get("opacity", 0.9)),
+                         name=spec.get("name", "成交量"), showlegend=False))
+
+
 def _channel(fig, spec, ctx):
     """平行通道：from/to=中枢端点[日期或pos,价]，lower/upper=下探/上张量（可不对称，
     或给 width 等宽）；画上下两条平行轨，可选 label 标在上轨中点上方。"""
