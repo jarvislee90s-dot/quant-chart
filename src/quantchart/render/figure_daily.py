@@ -96,6 +96,7 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
         legend=dict(orientation="h", x=.5, xanchor="center", y=1.01, yanchor="bottom",
                     font=dict(size=11, color=DARK["font"]), bgcolor="rgba(0,0,0,0)"),
     )
+    panel_notes = []
     for i in range(2, n + 1):
         panel = panels[i - 1]
         layers = panel.get("layers", [])
@@ -105,7 +106,13 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
         # 0 基线：面板显式 zero_floor: true，或含量柱层时自动
         zero_floor = bool(panel.get("zero_floor", False)) \
             or any(s.get("type") == "volume" for s in layers)
-        lo, hi = _panel_range(df, cols or ["close"], zero_floor=zero_floor)
+        lo, hi, ranged = _panel_range(df, cols or ["close"], zero_floor=zero_floor)
+        if not ranged:
+            # 防呆回显（不阻断）：纵轴退化不静默——提示排查方向，避免空面板无迹可寻
+            panel_notes.append(
+                f"⚠ 面板「{panel.get('title') or i}」无法确定 y 范围"
+                "（range_cols 缺失或全 NaN），纵轴退化为 [0,1]"
+                "——请检查 range_cols，或对从 0 起算的柱图设 zero_floor: true")
         is_bottom = i == n
         xconf = dict(showgrid=False, zeroline=False, linecolor=DARK["axis"],
                      showticklabels=bool(is_bottom))   # 仅最底面板画刻度
@@ -117,20 +124,21 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
                                                title=dict(text=panel.get("y_title", "")),
                                                gridcolor=DARK["grid"], griddash="dot",
                                                zeroline=False, linecolor=DARK["axis"])})
-    _annotate(fig, rep, title, notes, _visibility_warnings(fig))
+    _annotate(fig, rep, title, list(notes or []) + panel_notes, _visibility_warnings(fig))
     return fig
 
 
 def _panel_range(df, cols, zero_floor=False):
     """面板纵轴范围：默认上下留白；zero_floor（量柱面板）下限锁 0，不做下留白。
-    列全部缺失/全 NaN（如无量品种手写量面板）退化为 [0,1]——空面板仍成行，不崩。"""
+    列全部缺失/全 NaN（如无量品种手写量面板）退化为 [0,1]——空面板仍成行，不崩；
+    第三返回值 False 供上层脚注回显"无法确定 y 范围"防呆提示（不静默）。"""
     arrays = [df[c].dropna().values for c in cols if c in df]
     vals = np.concatenate(arrays) if arrays else np.array([])
     if vals.size == 0:
-        return 0.0, 1.0
+        return 0.0, 1.0, False
     lo, hi = float(vals.min()), float(vals.max())
     span = hi - lo or 1.0
-    return (0.0 if zero_floor else lo - span * .10), hi + span * .16
+    return (0.0 if zero_floor else lo - span * .10), hi + span * .16, True
 
 
 def _visibility_warnings(fig) -> list[str]:
@@ -151,9 +159,13 @@ def _visibility_warnings(fig) -> list[str]:
         for a in fig.layout.annotations:
             if getattr(a, "xref", "x") == "paper":
                 continue
-            for v in [a.x] + ([a.ax] if getattr(a, "axref", None) == "x" else []):
-                if v is not None and (v > right + 1e-6 or v < left - 1e-6):
-                    vis.append(f"标注'{a.text or ''}'@{v:.1f}")
+            if a.x is not None and (float(a.x) > right + 1e-6 or float(a.x) < left - 1e-6):
+                vis.append(f"标注'{a.text or ''}'@{float(a.x):.1f}")
+            # 箭尾：凡数据轴（x/x2/…，非 paper）均校验——仅查 axref=='x' 会漏掉
+            # 多面板副图标注（axref='x2'）的越界箭尾
+            if getattr(a, "axref", "x") != "paper" and a.ax is not None \
+                    and (float(a.ax) > right + 1e-6 or float(a.ax) < left - 1e-6):
+                vis.append(f"标注'{a.text or ''}'尾@{float(a.ax):.1f}")
         for sh in fig.layout.shapes:
             if getattr(sh, "xref", "x") == "paper":
                 continue

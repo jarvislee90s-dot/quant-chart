@@ -264,3 +264,39 @@ def test_visibility_guard_catches_out_of_range(tmp_path):
     fig, _ = run_pipeline(cfg)
     texts = [a.text for a in fig.layout.annotations]
     assert any("可见性警告" in t and "超界" in t for t in texts)
+
+
+def test_row_heights_length_mismatch_raises(tmp_path):
+    # row_heights 长度必须等于面板数（volume_panel=true → 2 面板），不符在渲染前报错
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    cfg["row_heights"] = [0.7, 0.2, 0.1]
+    with pytest.raises(ValueError, match="row_heights 长度 3 与面板数 2 不符"):
+        run_pipeline(cfg)
+
+
+def test_volume_panel_equivalent_to_extra_panels(tmp_path):
+    """两种启用方式（params.volume_panel 糖 vs extra_panels 手写）产出等价量柱——
+    防"糖"与手写两条路径的行为漂移（y 值/逐柱着色/轴绑定全等）。"""
+    cfg_s = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg_s["params"]["volume_panel"] = True
+    cfg_m = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg_m["extra_panels"] = [{"title": "成交量", "y_title": "成交量",
+                              "range_cols": ["volume"],
+                              "layers": [{"type": "volume", "col": "volume"}]}]
+    fig_s, _ = run_pipeline(cfg_s)
+    fig_m, _ = run_pipeline(cfg_m)
+    bs = [t for t in fig_s.data if t.type == "bar"][0]
+    bm = [t for t in fig_m.data if t.type == "bar"][0]
+    assert [float(y) for y in bs.y] == [float(y) for y in bm.y]
+    assert list(bs.marker.color) == list(bm.marker.color)
+    assert bs.yaxis == bm.yaxis == "y2"
+
+
+def test_html_contains_volume_subplot(tmp_path):
+    # 交互 HTML 产物携带成交量子图：bar trace 与量轴标题都在导出 JSON 里
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    fig, _ = run_pipeline(cfg)
+    html = fig.to_html(include_plotlyjs=False)
+    assert '"bar"' in html and "成交量" in html

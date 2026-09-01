@@ -127,3 +127,23 @@ def test_api_success_with_injected_fake(monkeypatch, tmp_path):
         monkeypatch.setitem(sys.modules, name, mod)
     df, rep = load_daily_api("IM0", "2026-08-25", "2026-08-27")
     assert len(df) == 3 and "local-datasource(IM0)" in rep.footnote()
+
+
+def test_visibility_guard_catches_subpanel_arrow_tail():
+    # 副图（axref='x2'）箭尾超界也要进脚注警告——原守卫仅查 axref=='x'，箭尾漏检
+    panels = [{"title": "主图", "layers": [{"type": "candle"}]},
+              {"title": "副图", "layers": [{"type": "arrow", "from": [50.0, 1.0],
+                                            "to": [5.0, 2.0], "color": "#ffffff"}]}]
+    fig = _fig(_df([(1.0, 2.0, 0.5, 1.5)] * 10), panels)
+    texts = " ".join(a.text or "" for a in fig.layout.annotations)
+    assert "可见性警告" in texts
+    assert "尾@50.0" in texts                      # 明确捕获越界箭尾
+
+
+def test_undetermined_panel_range_note():
+    # range_cols 指向缺失列：纵轴退化 [0,1] 不崩（既有语义），且脚注回显防呆提示不再静默
+    fig = _fig(_df([(1.0, 2.0, 0.5, 1.5)] * 3, with_volume=False), _panels_vol())
+    texts = " ".join(a.text or "" for a in fig.layout.annotations)
+    assert tuple(fig.layout.yaxis2.range) == (0.0, 1.0)
+    assert "无法确定 y 范围" in texts
+    assert "zero_floor" in texts                       # 提示给排查方向

@@ -109,7 +109,11 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
     if not title:
         title = (f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}"
                  f"–{cfg['input'].get('range', ['',''])[1]}）")
+    heights = cfg.get("row_heights")
+    if heights is not None and len(heights) != len(panels):
+        raise ValueError(f"row_heights 长度 {len(heights)} 与面板数 {len(panels)} 不符"
+                         "（多面板时每个面板一个高度占比，如 [0.72, 0.28]）")
     fig = build_daily_figure(out.df, slots, panels, rep, title=title, notes=notes,
                              forecast_days=cfg.get("forecast_days"),
-                             row_heights=cfg.get("row_heights"))
+                             row_heights=heights)
     return fig, rep
