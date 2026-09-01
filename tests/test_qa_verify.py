@@ -129,6 +129,15 @@ def test_upper_wraps_symmetric_to_lower():
     assert not v2.ok()
 
 
+def test_by_color_skips_non_line_traces():
+    # 多面板量柱（Bar 无 .line 属性）入图后，按色取线不得 AttributeError
+    fig = _fig()
+    fig.add_trace(go.Bar(x=[0, 5], y=[1.0, 2.0], marker_color="#39d353"))
+    v = Verifier(fig, _df())
+    v.expect_channel(color="#39d353", dash="dash")          # 仍只数两条 scatter 轨
+    assert v.ok()
+
+
 def test_left_quarter_and_forecast_zone_helpers():
     df = _df()                                                          # 6 根
     v = Verifier(_fig(), df)

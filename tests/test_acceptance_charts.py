@@ -11,7 +11,9 @@ import pytest
 
 CHARTS = [("chart_01_xau", "data/xau_daily.csv"),
           ("chart_02_cu0", "data/cu0_daily.csv"),
-          ("chart_03_tl0", "data/tl0_daily.csv")]
+          ("chart_03_tl0", "data/tl0_daily.csv"),
+          # 多面板+成交量子图：CSV 随仓（examples/），任何环境都跑（不 skip）
+          ("daily_volume_demo", "examples/daily_volume_demo.csv")]
 
 
 @pytest.mark.parametrize("name,csv", CHARTS)

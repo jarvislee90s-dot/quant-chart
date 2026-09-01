@@ -31,9 +31,14 @@ class Verifier:
         return [t for t in self.fig.data if t.type == kind]
 
     def _by_color(self, color, dash=None):
-        return [t for t in self.fig.data
-                if getattr(t.line, "color", None) == color
-                and (dash is None or t.line.dash == dash)]
+        # Bar 等非线 trace 无 .line 属性（多面板量柱入图后必须跳过）
+        out = []
+        for t in self.fig.data:
+            line = getattr(t, "line", None)
+            if line is not None and getattr(line, "color", None) == color \
+                    and (dash is None or line.dash == dash):
+                out.append(t)
+        return out
 
     def _ann_by_text(self, substr):
         return [a for a in self.fig.layout.annotations if a.text and substr in a.text]

@@ -11,6 +11,46 @@ from .primitives import Ctx, draw
 
 MARGIN = dict(l=68, r=168, t=108, b=130)
 
+# 贴水副轴历史刻度（P2#4 遗留包络内原样保留，既有图零变化）
+_LEGACY_BASIS_TICKS = [0] + [float(t) for t in np.arange(240, 400, 20)]
+_LEGACY_RATE_TICKS = [float(t) for t in np.arange(0, 5.51, .5)]
+
+
+def _nice_step(span: float, choices: tuple) -> float:
+    """按量级选整齐步长：目标刻度数 ≤ 12；候选全不达标时退化为 span/10（不崩）。"""
+    return next((s for s in choices if span / s <= 12), span / 10.0)
+
+
+def _basis_axis(b0: float, b1: float):
+    """贴水副轴（点）范围与刻度：数据自适应（P2#4，消除 240–400/-15 硬编码裁切）。
+
+    遗留包络（b0≥-15 且 b1≤400）保持历史范围 [-15, b1+42%margin] 与历史刻度
+    [0, 240..380] 原样——既有图渲染零变化；超出包络（贴水>400 或深贴水<-15）
+    时下限随数据下扩、刻度按数据范围整齐生成。
+    """
+    span = (b1 - b0) if b1 > b0 else 1.0
+    margin = span * .42
+    byhi = b1 + margin
+    if b0 >= -15.0 and b1 <= 400.0:
+        # 包络内下限钉死 -15（历史值）：min(b0-10%span) 在 0.1*span > b0+15 时
+        # 会突破 -15，违背"包络内逐值不变"；数据下扩只属于超包络分支
+        return -15.0, byhi, list(_LEGACY_BASIS_TICKS)
+    bylo = min(-15.0, b0 - span * .1)
+    step = _nice_step(byhi - bylo, (5, 10, 20, 25, 50, 100, 200, 500))
+    t0 = np.floor(bylo / step) * step
+    ticks = [round(float(t), 6) for t in np.arange(t0, byhi + step * .5, step)]
+    return bylo, byhi, ticks
+
+
+def _basis_rate_ticks(bylo: float, byhi: float, rate_factor: float):
+    """贴水率副轴（%）刻度：包络内（byhi/rate≤5.55）保持历史 0..5.5/.5；超包络自适应。"""
+    if byhi / rate_factor <= 5.55:
+        return list(_LEGACY_RATE_TICKS)
+    step = _nice_step((byhi - bylo) / rate_factor, (.25, .5, 1, 2, 5))
+    t0 = np.floor((bylo / rate_factor) / step) * step
+    return [round(float(t), 6)
+            for t in np.arange(t0, byhi / rate_factor + step * .5, step)]
+
 
 def build_figure(df, slots, panels: list[dict], rep, title: str = "",
                  row_heights: list | None = None) -> go.Figure:
@@ -27,11 +67,9 @@ def _build_single(df, slots, panel, rep, title: str) -> go.Figure:
 
     by = df["basis"] if "basis" in df else None
     if by is not None and by.notna().any():
-        b0, b1 = float(by.min()), float(by.max())
-        margin = (b1 - b0) * .42
-        bylo, byhi = -15.0, b1 + margin
+        bylo, byhi, by_ticks = _basis_axis(float(by.min()), float(by.max()))
     else:
-        bylo, byhi = -15.0, 400.0
+        bylo, byhi, by_ticks = -15.0, 400.0, list(_LEGACY_BASIS_TICKS)
     ylo, yhi = _auto_range(df, ["fut_close", "fut_open", "fut_high", "fut_low"])
     rate_factor = float(df["idx_close"].mean()) / 100.0 if "idx_close" in df else 75.0
 
@@ -49,13 +87,13 @@ def _build_single(df, slots, panel, rep, title: str) -> go.Figure:
                    linecolor="#333"),
         yaxis2=dict(overlaying="y", side="right", range=[bylo, byhi], position=.848,
                     title=dict(text="贴水（点）", font=dict(size=13, color="#a03340")),
-                    tickvals=[0] + list(np.arange(240, 400, 20)),
+                    tickvals=by_ticks,
                     tickfont=dict(size=10.5, color="#a03340"),
                     showgrid=False, zeroline=False, linecolor="#d8a0a8"),
         yaxis3=dict(overlaying="y", side="right", position=.955,
                     range=[bylo / rate_factor, byhi / rate_factor],
                     title=dict(text="贴水率（%）", font=dict(size=11, color="#777")),
-                    tickvals=list(np.arange(0, 5.51, .5)),
+                    tickvals=_basis_rate_ticks(bylo, byhi, rate_factor),
                     tickfont=dict(size=9.5, color="#888"),
                     showgrid=False, zeroline=False, linecolor="#c8c8c8"),
         legend=dict(orientation="h", x=.5, xanchor="center", y=1.0, yanchor="bottom",
@@ -143,22 +181,20 @@ def _build_multi(df, slots, panels, rep, title, row_heights):
                                                zeroline=False, linecolor="#333")})
     by = df["basis"] if "basis" in df else None
     if by is not None and by.notna().any():
-        b0, b1 = float(by.min()), float(by.max())
-        margin = (b1 - b0) * .42
-        bylo, byhi = -15.0, b1 + margin
+        bylo, byhi, by_ticks = _basis_axis(float(by.min()), float(by.max()))
     else:
-        bylo, byhi = -15.0, 400.0
+        bylo, byhi, by_ticks = -15.0, 400.0, list(_LEGACY_BASIS_TICKS)
     rate_factor = float(df["idx_close"].mean()) / 100.0 if "idx_close" in df else 75.0
     fig.update_layout(**{
         f"yaxis{ov2[1:]}": dict(overlaying="y", side="right", range=[bylo, byhi], position=.848,
                   title=dict(text="贴水（点）", font=dict(size=13, color="#a03340")),
-                  tickvals=[0] + list(np.arange(240, 400, 20)),
+                  tickvals=by_ticks,
                   tickfont=dict(size=10.5, color="#a03340"),
                   showgrid=False, zeroline=False, linecolor="#d8a0a8"),
         f"yaxis{ov3[1:]}": dict(overlaying="y", side="right", position=.955,
                   range=[bylo / rate_factor, byhi / rate_factor],
                   title=dict(text="贴水率（%）", font=dict(size=11, color="#777")),
-                  tickvals=list(np.arange(0, 5.51, .5)),
+                  tickvals=_basis_rate_ticks(bylo, byhi, rate_factor),
                   tickfont=dict(size=9.5, color="#888"),
                   showgrid=False, zeroline=False, linecolor="#c8c8c8")})
     fig.add_annotation(x=.005, y=1.075, xref="paper", yref="paper", showarrow=False,

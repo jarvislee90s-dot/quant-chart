@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.graph_objects as go
+import pytest
 
 from quantchart.render.primitives import Ctx, draw
 from quantchart.render.theme import DARK
@@ -114,3 +115,58 @@ def test_candle_colors_reference_theme(monkeypatch):
     draw(fig, {"type": "candle"}, _ctx())
     assert fig.data[0].increasing.line.color == "#abc123"
     assert fig.data[0].decreasing.line.color == "#321cba"
+
+
+def _ctx_vol():
+    df = _ctx().df
+    df["volume"] = [100.0, 200.0, 300.0]
+    df["open"] = [3.0, 1.0, 4.0]      # 跌/涨/跌（close 1.5/2.5/3.5）
+    df["close"] = [1.5, 2.5, 3.5]
+    return Ctx(slots=None, df=df)
+
+
+def test_volume_bars_colored_by_up_down():
+    fig = go.Figure()
+    draw(fig, {"type": "volume"}, _ctx_vol())
+    tr = fig.data[0]
+    assert tr.type == "bar" and tr.name == "成交量"
+    assert list(tr.marker.color) == [DARK["down"], DARK["up"], DARK["down"]]  # 跌/涨/跌
+    assert tr.showlegend is False
+
+
+def test_volume_skips_when_column_missing():
+    # 无量品种（适配器已丢列/脚注提示）：原语自动省略，不画空面板
+    fig = go.Figure()
+    draw(fig, {"type": "volume"}, _ctx())
+    assert len(fig.data) == 0
+
+
+def test_volume_skips_when_all_nan():
+    ctx = _ctx_vol()
+    ctx.df["volume"] = float("nan")
+    fig = go.Figure()
+    draw(fig, {"type": "volume"}, ctx)
+    assert len(fig.data) == 0
+
+
+def test_volume_binds_ctx_yaxis():
+    fig = go.Figure()
+    draw(fig, {"type": "volume"}, Ctx(slots=None, df=_ctx_vol().df, yaxis="y2"))
+    assert fig.data[0].yaxis == "y2"                  # 多面板时落本面板轴（不混入主图）
+
+
+def test_volume_custom_colors_and_width():
+    fig = go.Figure()
+    draw(fig, {"type": "volume", "up": "#111111", "down": "#222222", "width": 0.5},
+         _ctx_vol())
+    tr = fig.data[0]
+    assert list(tr.marker.color) == ["#222222", "#111111", "#222222"]
+    assert tr.width == 0.5
+
+
+def test_volume_requires_ohlc_columns():
+    # 缺 open/close 的宽表误用 volume → 中文报错而非裸 KeyError
+    ctx = Ctx(slots=None, df=_ctx_vol().df.drop(columns=["open", "close"]))
+    fig = go.Figure()
+    with pytest.raises(ValueError, match="OHLC"):
+        draw(fig, {"type": "volume"}, ctx)

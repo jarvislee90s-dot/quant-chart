@@ -84,9 +84,13 @@ def _zone(fig, spec, ctx):
 
 def _hline(fig, spec, ctx):
     yref = spec.get("axis", "y2")
-    if spec.get("from") or spec.get("to"):
-        x0 = _xof(ctx, spec.get("from", ctx.df["pos"].min()))
-        x1 = _xof(ctx, spec.get("to", ctx.df["pos"].max()))
+    has_from, has_to = bool(spec.get("from")), bool(spec.get("to"))
+    if has_from or has_to:
+        # 数据坐标段：缺省端取数据首/末 pos；线体与标注共用同一 xref（P2#3：
+        # 原实现"只给 to"时标注 xref 退化为 paper、x 取数据 pos——锚点错位到纸面外）
+        x0 = _xof(ctx, spec["from"]) if has_from else float(ctx.df["pos"].min())
+        x1 = _xof(ctx, spec["to"]) if has_to else float(ctx.df["pos"].max())
+        xref = ctx.xaxis
     else:
         x0, x1 = 0, 1
         xref = "paper"
@@ -95,13 +99,11 @@ def _hline(fig, spec, ctx):
     yv = spec.get("value")
     if yv is None and spec.get("col_last"):
         yv = float(ctx.df[spec["col_last"]].dropna().iloc[-1])
-    xref = ctx.xaxis if (spec.get("from") or spec.get("to")) else "paper"
     fig.add_shape(type="line", x0=x0, x1=x1, y0=yv, y1=yv, xref=xref, yref=yref,
                   line=dict(color=spec.get("color", "#83898f"),
                             width=spec.get("width", 1.1), dash=spec.get("dash", "dash")))
     if spec.get("label"):
-        fig.add_annotation(x=x0, y=yv, yref=yref,
-                           xref=ctx.xaxis if spec.get("from") else "paper",
+        fig.add_annotation(x=x0, y=yv, yref=yref, xref=xref,
                            text=spec["label"], showarrow=False,
                            xanchor="left", yanchor="bottom",
                            font=dict(size=10.5, color=spec.get("label_color",
@@ -290,6 +292,28 @@ def _text(fig, spec, ctx):
                        font=dict(size=spec.get("size", 12),
                                  color=spec.get("color", "#dfe3ea")),
                        bgcolor=spec.get("bgcolor"), borderpad=2 if spec.get("bgcolor") else 0)
+
+
+def _volume(fig, spec, ctx):
+    """成交量子图柱：红涨青跌（与K线同色语义，色值缺省取 theme.DARK，可配 up/down 覆盖）。
+
+    x=pos 数值轴——多面板 shared_xaxes 时与主图逐柱对齐；量柱面板纵轴下限锁 0
+    （figure_daily._panel_range zero_floor）。无量（列缺失/全 NaN）自动省略不画，
+    适配器已在脚注给"无量"提示。
+    """
+    col = spec.get("col", "volume")
+    if col not in ctx.df or not ctx.df[col].notna().any():
+        return
+    for c in ("open", "close"):        # 涨跌配色依赖 OHLC 规范宽表
+        if c not in ctx.df:
+            raise ValueError(f"volume 原语需要 '{c}' 列判涨跌（日线规范宽表必含 OHLC）")
+    yax = None if ctx.yaxis == "y" else ctx.yaxis
+    c_up, c_down = spec.get("up", DARK["up"]), spec.get("down", DARK["down"])
+    colors = [c_up if u else c_down for u in (ctx.df["close"] >= ctx.df["open"])]
+    fig.add_trace(go.Bar(x=ctx.df["pos"], y=ctx.df[col], yaxis=yax,
+                         width=spec.get("width", 0.8),
+                         marker=dict(color=colors, opacity=spec.get("opacity", 0.9)),
+                         name=spec.get("name", "成交量"), showlegend=False))
 
 
 def _channel(fig, spec, ctx):

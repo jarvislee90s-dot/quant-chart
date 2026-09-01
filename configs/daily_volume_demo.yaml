@@ -1,0 +1,20 @@
+# 日线多面板示例：主图（K线+均线+通道+标注）+ 成交量子图（params.volume_panel 一键声明）
+# 数据为合成演示序列（tools/make_demo_daily.py，种子 20260831），可离线复现。
+# 等价手写方式：extra_panels: [{title: 成交量, y_title: 成交量, range_cols: [volume],
+#               layers: [{type: volume, col: volume}]}]
+input:
+  mode: daily_csv
+  csv: examples/daily_volume_demo.csv
+  range: [2026-06-01, 2026-08-31]
+project: out/projects/daily_volume_demo
+strategy: daily_candle
+title: "合成演示 · 日线多面板（主图 + 成交量子图）"
+forecast_days: 10
+params:
+  ma: [5, 10, 20]
+  volume_panel: true                       # 一键追加成交量子图（无量品种自动省略）
+  channels:
+    - {start: "2026-06-15", end: "2026-08-15", color: "#fdfd52", dash: dash, label: 演示通道}
+  annotations:
+    - {type: hline, value: 6900.0, color: "#e47b7c", width: 1.0, dash: solid, label: 支撑}
+    - {type: tag, value: 6900.0, text: "6900", color: "#ff8888", text_color: "#8c1d1d"}

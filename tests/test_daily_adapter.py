@@ -78,7 +78,10 @@ def test_api_not_installed(monkeypatch):
         load_daily_api("IM0", "2026-08-25", "2026-08-27")
 
 
+@pytest.mark.integration_localds
 def test_api_success(monkeypatch):
+    # 依赖 local-datasource（monkeypatch 其 providers 模块）：未装环境按
+    # integration_localds 标记 deselect，不以 ModuleNotFoundError 失败
     def fake_query(symbol, period, start_date, end_date, file_path):
         assert symbol == "IM0" and period == "daily"
         with open(file_path, "w", encoding="utf-8") as f:

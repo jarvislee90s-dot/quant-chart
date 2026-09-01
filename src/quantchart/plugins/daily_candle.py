@@ -38,7 +38,10 @@ def _resolve_anchor(df: pd.DataFrame, spec, kind: str):
 
 
 @register_strategy("daily_candle")
-def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **params):
+def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None,
+        volume_panel=False, **params):
+    if not isinstance(volume_panel, bool):
+        raise ValueError("volume_panel 必须是布尔值（params.volume_panel: true 追加成交量子图）")
     ma = [int(n) for n in (ma or [5, 10, 20, 30, 60])]
     if any(n <= 0 for n in ma) or len(set(ma)) != len(ma):
         raise ValueError(f"ma 必须为正整数且不重复: {ma}")
@@ -51,14 +54,22 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
     for n, w in zip(ma, windows):
         df[f"ma{n}"] = df["close"].rolling(w).mean()
 
+    # 窗口 > 数据长度时 rolling 全 NaN（无可用段——画"可用部分"须 min_periods=1，
+    # 会把 MA20 算成 5 根均值、篡改语义）：该 MA 不画（图层移除、图例同步消失）+
+    # 脚注回显。与 TradingView/通达信"窗口不足不画不报错"一致；多窗口混合时局部降级
+    # 而非阻断整图。颜色按原序号取，缺失窗口不影响其余 MA 的配色。
+    ch_notes = []
     palette = DARK["ma_palette"]
+    skipped = [(n, w) for (n, w) in zip(ma, windows) if w > len(df)]
     layers = [{"type": "candle", "name": "K线", "up": DARK["up"], "down": DARK["down"]}]
     layers += [{"type": "line", "col": f"ma{n}", "name": f"MA{n}",
                 "color": palette[i % len(palette)], "width": 1.2}
-               for i, n in enumerate(ma)]
+               for i, (n, w) in enumerate(zip(ma, windows)) if w <= len(df)]
+    if skipped:
+        ch_notes.append(f"MA 窗口超出数据长度（{len(df)}根），未绘制: "
+                        + "、".join(f"MA{n}（{w}根）" for n, w in skipped))
     # 声明式通道：每条只写窗口+样式，两轨由 fit_channel 自动拟合（中枢主导三步法）。
     # 窗口端点支持事件式锚定（peak/trough/above/below），数据刷新自动重锚，杜绝硬编码日期漂移。
-    ch_notes = []
     for k, c in enumerate(channels or []):
         if not isinstance(c, dict) or not c.get("start") or not c.get("end"):
             raise ValueError(f"channels[{k}] 必须是含 start/end 的映射"
@@ -87,5 +98,12 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None, **pa
         if a["type"] == "hline":
             a.setdefault("axis", "y")   # 分钟路径缺省 y2（贴水副轴），日线单面板注入主轴
         layers.append(a)
-    return StrategyOutput(df=df, events=[], notes=ch_notes,
-                          panels=[{"title": "主图", "layers": layers}])
+    panels = [{"title": "主图", "layers": layers}]
+    if volume_panel:
+        # 成交量子图：多面板体系下的一种面板类型（与日内 extra_panels 同一机制，
+        # 此处为最常用路径提供一键声明）；无量品种不追加空面板（适配器脚注已提示）
+        if "volume" in df and df["volume"].notna().any():
+            panels.append({"title": "成交量", "y_title": "成交量",
+                           "range_cols": ["volume"],
+                           "layers": [{"type": "volume", "col": "volume"}]})
+    return StrategyOutput(df=df, events=[], notes=ch_notes, panels=panels)

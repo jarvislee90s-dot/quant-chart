@@ -32,12 +32,27 @@ def test_build_daily_figure_dark_single_panel():
     assert any("交易日10天" in t for t in texts)
 
 
-def test_build_daily_figure_rejects_multi_panel():
+def test_build_daily_figure_multi_panel_layout():
+    # 单面板红线已解除：2 面板成行，量柱落量轴，时间刻度只在底轴
+    df = _daily_df()
+    slots = build_daily_slots(df)
+    panels = [{"title": "主图", "layers": [{"type": "candle"}]},
+              {"title": "成交量", "y_title": "成交量", "range_cols": ["volume"],
+               "layers": [{"type": "volume", "col": "volume"}]}]
+    fig = build_daily_figure(df, slots, panels, DailyQualityReport("x", 10, 10), title="测试")
+    assert fig.layout.yaxis2 is not None                     # 第二行量轴
+    assert fig.layout.xaxis.showticklabels is False          # 顶轴刻度隐藏
+    assert fig.layout.xaxis2.showticklabels is not False     # 底轴刻度可见
+    assert list(fig.layout.xaxis2.tickvals) == list(slots.tick_pos)
+    bars = [t for t in fig.data if t.type == "bar"]
+    assert bars and bars[0].yaxis == "y2"                    # 量柱落量轴不混入主图
+
+
+def test_build_daily_figure_empty_panels_rejected():
     df = _daily_df(3)
     slots = build_daily_slots(df)
-    with pytest.raises(ValueError, match="单面板"):
-        build_daily_figure(df, slots, [{"layers": []}, {"layers": []}],
-                           DailyQualityReport("x", 3, 3))
+    with pytest.raises(ValueError, match="面板配置为空"):
+        build_daily_figure(df, slots, [], DailyQualityReport("x", 3, 3))
 
 
 import pytest
@@ -113,11 +128,56 @@ def test_trades_rejected_in_daily_mode(tmp_path):
         run_pipeline(cfg)
 
 
-def test_extra_panels_rejected(tmp_path):
+def test_extra_panels_supported(tmp_path):
+    # 日线接入 extra_panels 体系（与日内同一机制）：副图层落本面板轴
     cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
-    cfg["extra_panels"] = [{"title": "副图", "layers": []}]
-    with pytest.raises(ValueError, match="单面板"):
-        run_pipeline(cfg)
+    cfg["extra_panels"] = [{"title": "均线副图", "y_title": "MA5",
+                            "layers": [{"type": "line", "col": "ma5", "name": "MA5"}]}]
+    fig, rep = run_pipeline(cfg)
+    assert fig.layout.yaxis2 is not None
+    ma = [t for t in fig.data if t.name == "MA5"]
+    assert len(ma) == 2 and ma[-1].yaxis == "y2"             # 主图一份+副图一份，副图落 y2
+
+
+def test_volume_panel_e2e(tmp_path):
+    # params.volume_panel 一键声明：端到端出量柱面板，量柱与K线逐柱同位
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    fig, _ = run_pipeline(cfg)
+    bars = [t for t in fig.data if t.type == "bar"]
+    candles = [t for t in fig.data if t.type == "candlestick"]
+    assert len(bars) == 1 and bars[0].yaxis == "y2"
+    assert list(bars[0].x) == list(candles[0].x)
+    assert fig.layout.yaxis2.title.text == "成交量"
+    assert fig.layout.yaxis2.range[0] == 0.0                 # 量轴 0 基线
+
+
+def test_row_heights_applied(tmp_path):
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    fig_default, _ = run_pipeline(cfg)
+    cfg["row_heights"] = [0.5, 0.5]
+    fig_half, _ = run_pipeline(cfg)
+    d = fig_default.layout.yaxis.domain
+    h = fig_half.layout.yaxis.domain
+    assert d[0] < h[0]                                       # 主图占比 0.72 时域底低于 0.5 对开
+
+
+def test_config_row_heights_invalid():
+    with pytest.raises(ConfigError, match="row_heights"):
+        load_cfg_text("input: {mode: daily_csv, csv: x.csv, range: [2026-08-20, 2026-08-21]}\n"
+                      "row_heights: [0.7, -0.3]")
+
+
+def test_ma_overflow_footnote_and_no_trace(tmp_path):
+    # 端到端：超窗口 MA 不进图（无 MA20/MA60 trace），脚注明示未绘制
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["ma"] = [20, 60]                       # 8 根数据，两窗口均超
+    fig, rep = run_pipeline(cfg)
+    assert not any(t.name in ("MA20", "MA60") for t in fig.data)
+    texts = [a.text for a in fig.layout.annotations]
+    assert any("MA20（20根）" in t and "MA60（60根）" in t and "未绘制" in t
+               for t in texts)
 def test_forecast_days_config_extends_axis(tmp_path):
     cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
     cfg["forecast_days"] = 15
@@ -204,3 +264,39 @@ def test_visibility_guard_catches_out_of_range(tmp_path):
     fig, _ = run_pipeline(cfg)
     texts = [a.text for a in fig.layout.annotations]
     assert any("可见性警告" in t and "超界" in t for t in texts)
+
+
+def test_row_heights_length_mismatch_raises(tmp_path):
+    # row_heights 长度必须等于面板数（volume_panel=true → 2 面板），不符在渲染前报错
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    cfg["row_heights"] = [0.7, 0.2, 0.1]
+    with pytest.raises(ValueError, match="row_heights 长度 3 与面板数 2 不符"):
+        run_pipeline(cfg)
+
+
+def test_volume_panel_equivalent_to_extra_panels(tmp_path):
+    """两种启用方式（params.volume_panel 糖 vs extra_panels 手写）产出等价量柱——
+    防"糖"与手写两条路径的行为漂移（y 值/逐柱着色/轴绑定全等）。"""
+    cfg_s = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg_s["params"]["volume_panel"] = True
+    cfg_m = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg_m["extra_panels"] = [{"title": "成交量", "y_title": "成交量",
+                              "range_cols": ["volume"],
+                              "layers": [{"type": "volume", "col": "volume"}]}]
+    fig_s, _ = run_pipeline(cfg_s)
+    fig_m, _ = run_pipeline(cfg_m)
+    bs = [t for t in fig_s.data if t.type == "bar"][0]
+    bm = [t for t in fig_m.data if t.type == "bar"][0]
+    assert [float(y) for y in bs.y] == [float(y) for y in bm.y]
+    assert list(bs.marker.color) == list(bm.marker.color)
+    assert bs.yaxis == bm.yaxis == "y2"
+
+
+def test_html_contains_volume_subplot(tmp_path):
+    # 交互 HTML 产物携带成交量子图：bar trace 与量轴标题都在导出 JSON 里
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["params"]["volume_panel"] = True
+    fig, _ = run_pipeline(cfg)
+    html = fig.to_html(include_plotlyjs=False)
+    assert '"bar"' in html and "成交量" in html

@@ -150,10 +150,12 @@
 1. 适配器跨日 ffill 会把上日 15:00 值填进次日 09:30（建议按日分组填充）。
 2. `test_daily_min_basis_series` 的 `zip(got, DAILY_MIN)` 无长度前置断言
    （P0-2 已给窗口价差补了同类断言，此处待同样处理）。
-3. `_hline` 存在死赋值（else 分支 `xref = "paper"` 随后被覆盖）；"只给 to 不给
-   from"时标注 x 锚点取 x0 会错位。
-4. `figure.py` 副轴刻度 240–400 与 -15 下限为硬编码量级假设（贴水超出该范围
-   会被裁切），应在注释/文档标明或改为自适应。
+3. ~~`_hline` 存在死赋值（else 分支 `xref = "paper"` 随后被覆盖）；"只给 to 不给
+   from"时标注 x 锚点取 x0 会错位。~~——已修（task2，commit 8d78b75）：线体与标注
+   共用 xref，回归测试 3 形态（见下「Task2 偏差记录」）。
+4. ~~`figure.py` 副轴刻度 240–400 与 -15 下限为硬编码量级假设（贴水超出该范围
+   会被裁切），应在注释/文档标明或改为自适应。~~——已修（task2，commit 456d896）：
+   遗留包络内零变化，包络外数据自适应（见下「Task2 偏差记录」）。
 5. `Ctx.y2axis` 字段未被使用。
 6. `signals.daily_min_events` 遇某日整段 NaN 时 `idxmin` 崩溃。
 7. `run_pipeline` 标题回退对单元素 `range` 会 IndexError（`[0]–[1]` 取值）。
@@ -336,3 +338,115 @@ mode:auto 覆盖不足整体回退 Excel（source 标注降级）。
 - **计划原文**：dict 推导做 stripped→original 的重命名映射
 - **实际做法**：改为 `rename(columns=lambda c: str(c).strip())`，并补空白表头回归测试
 - **原因**：计划推导方向写反（stripped→original 永不命中），带空白表头不会被清洗。
+
+## Task2 —— 日线多面板+成交量子图（2026-08-31，task2/gazelle 分支）偏差记录
+
+### 裁决 1 —— 两处「单面板拒绝」既有测试随红线解除而改写（涉及「既有断言零改动」约束）
+
+- **约束原文**：新增功能必须带测试，既有断言零改动。
+- **冲突**：`tests/test_daily_pipeline.py::test_build_daily_figure_rejects_multi_panel`
+  与 `test_extra_panels_rejected` 两条既有断言，钉死的正是本任务明文要求解除的
+  「日线单面板限制」（设计文档 §2.3 自述为"分期实施的边界，不是产品决策"）。
+  保留它们 == 不做任务，无第三种状态。
+- **裁决**：按任务优先，两条拒绝测试**改写为支持测试**（1:1 替换，数量不减）：
+  - `test_build_daily_figure_rejects_multi_panel` → `test_build_daily_figure_multi_panel_layout`
+    （双面板成行/量柱落 y2/刻度只在底轴）+ `test_build_daily_figure_empty_panels_rejected`
+    （空面板仍报错）；
+  - `test_extra_panels_rejected` → `test_extra_panels_supported`（副图 MA5 落 y2）。
+- **为何不算"放水"**：被改的只有"拒绝多面板"这一被任务否决的契约；其余既有断言
+  （三层验收清单、回归值、快照对比）全部零改动且全绿。同类裁决有先例：日线阶段
+  「既有测试零改动」约束经控制方裁决限定为"分支前既有测试"（见上节卷首）。
+
+### 决策 1 —— 日线多面板与日内 extra_panels 的关系：接入统一，不另立体系
+
+- **备选**：(a) 接入统一（panels/extra_panels 同一机制）；(b) 日线另立 `subplots` 键并存。
+- **实际做法**：(a)。`merge_panels` 本就是两条产品线共用，本轮只拆除
+  `build_daily_figure` 里最后一处 `len(panels) != 1 → raise`，日线获得与日内同构的
+  `_build_daily_multi`（make_subplots 共享X、轴号重映射、底轴画刻度）。
+- **原因**：(b) 会让"多面板"在两条产品线有两套语义，用户每配一图都要先问模式；
+  接入统一后 `extra_panels`/`panels`/`row_heights` 三个键跨产品线同效，学习成本归零。
+  日线无贴水 overlay 轴，轴重映射比日内少一层（无 y2→overlay 重定向），
+  `_remap_daily_axes` 只做"缺省轴/字面 y → 本面板主轴"。
+
+### 决策 2 —— 成交量子图的数据口径与配色
+
+- **数据来源**：适配器 `volume` 列（CSV `成交量`/`volume`，中英表头已映射；
+  无量品种如伦敦金现货，适配器丢列且脚注"无量"提示）。不新增数据通道、不改适配器契约。
+- **配色**：红涨青跌，色值缺省直接引用 `theme.DARK["up"]/["down"]`——与 K 线同色语义
+  （通达信/同花顺惯例），主题单一校准源；`up/down/opacity/width` 可在层配置覆盖。
+- **轴对齐**：量柱 x=pos 数值轴，多面板 `shared_xaxes=True` 与主图逐柱同位；
+  量轴纵域 `[0, max×1.16]`（下限锁 0，不做下留白）；时间刻度只画底轴。
+- **一键声明**：`params.volume_panel: true` 由插件追加预置面板
+  （title/y_title/range_cols/layers 齐备），与手写 `extra_panels` 等价二选一；
+  无量时插件不追加空面板（适配器脚注已提示），不静默画空图。
+
+### P2#3 修复（commit 8d78b75）
+
+- 线体与标注共用同一 `xref`（数据段 `ctx.xaxis` / 纸面 `paper`），消除 else 分支
+  死赋值；"只给 to 不给 from"时标注不再退化为 paper 坐标（原实现 x=数据 pos 配
+  paper 坐标 → 锚点错位到纸面外）。回归测试 3 形态：to-only / from-only / 纸面全宽。
+- 既有行为不变面：from+to、纸面全宽两形态快照逐字节一致（见下证据节）。
+
+### P2#4 修复（commit 456d896）
+
+- 包络（b0≥-15、b1≤400、byhi/rate≤5.55）内：范围 [-15, b1+42%] 与历史刻度
+  [0,240..380]/[0..5.5] 原样保留——既有图零变化；
+- 包络外：下限 `min(-15, b0-10%span)` 随数据下扩，刻度按 `_nice_step`
+  （5/10/20/25/50/100/200/500，目标 ≤12 个）整齐生成覆盖全范围，点/率两轴同法。
+- 回归测试：包络内钉死历史值；超包络刻度覆盖数据范围、下限不裁切。
+
+### 连带修复 —— qa/verify `_by_color` 遇 Bar 崩溃（commit 39f327d）
+
+- 量柱（go.Bar 无 `.line`）入图后按色取线 AttributeError；改 `getattr` 守卫，
+  线图行为零变化，补回归。
+
+### 预存缺陷 —— test_api_success 缺标记（commit 1ec49a8）
+
+- 补 `@pytest.mark.integration_localds`：未装 local-datasource 环境由 fail 变
+  deselect（基线 1 failed → 0 failed），已装环境照常跑（fake_query 不打真网）。
+
+### 新旧行为对照证据（验收输出留档）
+
+- 快照对比（入仓工具 `tools/fig_compare.py`，13 场景 fig.to_dict 语义 diff，
+  含 7 份既有 config 原样渲染；复跑步骤见工具 docstring 与 IMPLEMENTATION_NOTES §二）：
+  7 份 config + `daily_single`/`daily_e2e`/`intraday_multi` 全部 **0 diff**；
+  `intraday_single` 1 diff——仅 P2#3 修复的 to-only 标注 xref（paper→x 数据坐标）；
+  `intraday_basis_beyond`/`_negative` 仅 P2#4 的刻度/下限变化（设计目标）。
+- pytest 口径 `pytest -q -m "not integration_localds"`：
+  基线 138 passed / 1 failed / 9 skipped / 1 deselected
+  → 终态 **160 passed / 0 failed / 9 skipped / 2 deselected**
+  （+22 新测试；两条拒绝测试 1:1 改写为支持测试，数量不减）。
+- fresh clone（`git clone -b task2/gazelle` + 独立 venv `pip install -e ".[dev]"`）：
+  全套 160 passed、验收清单 PASSED、验收 CLI 0 违规，成品 PNG 与工作区 md5 一致。
+- 验收 CLI：`python tools/verify_chart.py configs/daily_volume_demo.yaml
+  out/projects/daily_volume_demo/chart.png --checks tests/acceptance_checks/daily_volume.py`
+  → 验收通过（0 违规）。
+
+### 自审轮（2026-09-01）新增偏差与收尾
+
+- **薄弱点 1（实现缺陷，自审发现）**：`_panel_range` 对列缺失/全 NaN 崩溃——
+  `range_cols: [volume]` 指定缺失列（无量品种手写量面板）时
+  `np.concatenate([])` 抛 ValueError。修：先收 arrays 再判空，退化 [0,1]，
+  空面板仍成行。边界测试钉住（`test_volume_all_nan_explicit_panel_no_crash` /
+  `test_volume_column_absent_explicit_panel_no_crash`，修前复现崩溃、修后通过）。
+- **薄弱点 2（设计妥协）**：纵轴取数列原硬编码 `("line","volume")` 类型元组，
+  未来带 `col` 的同构原语会漏网。修：收所有带 `"col"` 的图层（标注类原语无
+  `col` 键天然排除），零特例。
+- **薄弱点 3（接口缺口）**：`zero_floor` 原仅按 volume 类型自动识别，新原语无法
+  表达 0 基线。修：面板显式 `zero_floor: true`（量柱层仍自动），
+  `test_zero_floor_panel_key` 钉住。
+- **探针化**：fig_compare 拆出 `probe_p2_3_to_only`/`probe_p2_4_*` 独立探针场景，
+  对比结果按「预期 diff（修复目标）31 处 / 意外 diff（回归）0 处」分类
+  （工具与 NOTES §7.4 留档）。
+- **存疑项收尾**：n≥3 布局补测；test_api_success 补注入式机器证据
+  （sys.modules 假包，不依赖真 local-datasource）。
+
+### 追加轮（2026-09-01）—— MA 窗口超数据长度（backlog #23）
+
+- **现状实测**：12 行数据 + `ma=[20,60]` → `rolling` 全 NaN、图层仍进图（图上不可见）、
+  脚注静默、图例仍显示 MA20/MA60（误导）。
+- **决策**：窗口 > 数据长度时该 MA 不画（图层移除/图例消失）+ 脚注回显；
+  窗口 ≤ 数据长度维持 partial 末段（语义不变）。不画可用部分（篡改语义）、
+  不报错（阻断整图）——与 TradingView/通达信惯例一致。
+- **证据**：fig_compare 既有 11 场景 0 意外 diff（既有 config 窗口均在数据长内）；
+  pytest 176 passed / 0 failed（+6 回归测试）。
