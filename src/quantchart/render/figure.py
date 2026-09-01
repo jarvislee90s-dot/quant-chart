@@ -30,10 +30,12 @@ def _basis_axis(b0: float, b1: float):
     """
     span = (b1 - b0) if b1 > b0 else 1.0
     margin = span * .42
-    bylo = min(-15.0, b0 - span * .1)
     byhi = b1 + margin
     if b0 >= -15.0 and b1 <= 400.0:
-        return bylo, byhi, list(_LEGACY_BASIS_TICKS)
+        # 包络内下限钉死 -15（历史值）：min(b0-10%span) 在 0.1*span > b0+15 时
+        # 会突破 -15，违背"包络内逐值不变"；数据下扩只属于超包络分支
+        return -15.0, byhi, list(_LEGACY_BASIS_TICKS)
+    bylo = min(-15.0, b0 - span * .1)
     step = _nice_step(byhi - bylo, (5, 10, 20, 25, 50, 100, 200, 500))
     t0 = np.floor(bylo / step) * step
     ticks = [round(float(t), 6) for t in np.arange(t0, byhi + step * .5, step)]
