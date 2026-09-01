@@ -135,3 +135,9 @@ def test_merge_panels_priority():
     assert merge_panels(d, u, None) == u
     assert merge_panels(d, None, e) == d + e
     assert merge_panels(d, u, e) == u + e
+
+
+def test_row_heights_from_config():
+    # YAML row_heights 对日内多面板同效（CLI 不传参时从 cfg 取，与日线同一路径）
+    fig, _ = run_pipeline(dict(CFG_TRADES, row_heights=[0.5, 0.5]), title="t")
+    assert fig.layout.yaxis.domain[0] > 0.5     # 对开：主图域底 0.575（默认 0.72 占比时 0.388）

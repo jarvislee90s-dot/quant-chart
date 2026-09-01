@@ -86,6 +86,12 @@ def load_config(path: str) -> dict:
                 raise ConfigError(f"trades[{k}].lots 缺失（close 动作可省略）")
     if not isinstance(cfg.get("extra_panels", []), list):
         raise ConfigError("extra_panels 必须是列表")
+    rh = cfg.get("row_heights")
+    if rh is not None and (
+            not isinstance(rh, list) or not rh
+            or any(isinstance(x, bool) or not isinstance(x, (int, float)) or x <= 0
+                   for x in rh)):
+        raise ConfigError("row_heights 必须是正数列表（每行面板高度占比，如 [0.72, 0.28]）")
     mult = cfg.get("contract_mult", 200)
     if isinstance(mult, bool) or not isinstance(mult, (int, float)) or mult <= 0:
         raise ConfigError("contract_mult 必须是正数")

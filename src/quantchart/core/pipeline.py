@@ -34,6 +34,7 @@ def merge_panels(default_panels: list, user_panels: list,
 def run_pipeline(cfg: dict, title: str = "", row_heights: list | None = None) -> tuple:
     if str(cfg["input"].get("mode", "excel")).startswith("daily"):
         return run_daily_pipeline(cfg, title=title)
+    row_heights = row_heights or cfg.get("row_heights")   # YAML row_heights 对两条产品线同效
     df, rep = auto_load(cfg["input"])
     slots = build_slots(df)
     load_plugins()
@@ -96,7 +97,7 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
               for p in panels]
     # 标注 pos 锚点防呆：中图位置若用数字 pos，换数据会错位——计数回显到脚注
     pos_anchors = 0
-    for spec in panels[0].get("layers", []):
+    for spec in (s for p in panels for s in p.get("layers", [])):
         if spec.get("type") not in ("trendline", "arrow", "circle", "text"):
             continue
         first = (spec.get("at") or spec.get("from") or [None])[0]
@@ -109,5 +110,6 @@ def run_daily_pipeline(cfg: dict, title: str = "") -> tuple:
         title = (f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}"
                  f"–{cfg['input'].get('range', ['',''])[1]}）")
     fig = build_daily_figure(out.df, slots, panels, rep, title=title, notes=notes,
-                             forecast_days=cfg.get("forecast_days"))
+                             forecast_days=cfg.get("forecast_days"),
+                             row_heights=cfg.get("row_heights"))
     return fig, rep
