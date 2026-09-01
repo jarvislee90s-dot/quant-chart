@@ -99,11 +99,13 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
     for i in range(2, n + 1):
         panel = panels[i - 1]
         layers = panel.get("layers", [])
-        cols = panel.get("range_cols") or [s["col"] for s in layers
-                                           if s.get("type") in ("line", "volume")
-                                           and "col" in s]
-        has_vol = any(s.get("type") == "volume" for s in layers)
-        lo, hi = _panel_range(df, cols or ["close"], zero_floor=has_vol)
+        # 纵轴取数列：range_cols 显式优先；缺省收所有带 "col" 的图层（line/volume/area
+        # 及未来同构原语自动纳入），标注类原语（hline/zone/arrow/…）无 "col" 键天然排除
+        cols = panel.get("range_cols") or [s["col"] for s in layers if "col" in s]
+        # 0 基线：面板显式 zero_floor: true，或含量柱层时自动
+        zero_floor = bool(panel.get("zero_floor", False)) \
+            or any(s.get("type") == "volume" for s in layers)
+        lo, hi = _panel_range(df, cols or ["close"], zero_floor=zero_floor)
         is_bottom = i == n
         xconf = dict(showgrid=False, zeroline=False, linecolor=DARK["axis"],
                      showticklabels=bool(is_bottom))   # 仅最底面板画刻度
@@ -120,8 +122,12 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
 
 
 def _panel_range(df, cols, zero_floor=False):
-    """面板纵轴范围：默认上下留白；zero_floor（量柱面板）下限锁 0，不做下留白。"""
-    vals = np.concatenate([df[c].dropna().values for c in cols if c in df])
+    """面板纵轴范围：默认上下留白；zero_floor（量柱面板）下限锁 0，不做下留白。
+    列全部缺失/全 NaN（如无量品种手写量面板）退化为 [0,1]——空面板仍成行，不崩。"""
+    arrays = [df[c].dropna().values for c in cols if c in df]
+    vals = np.concatenate(arrays) if arrays else np.array([])
+    if vals.size == 0:
+        return 0.0, 1.0
     lo, hi = float(vals.min()), float(vals.max())
     span = hi - lo or 1.0
     return (0.0 if zero_floor else lo - span * .10), hi + span * .16
