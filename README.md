@@ -205,6 +205,8 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 | 只看最近几天（手头没有 Excel） | `mode: api` + `input.api` 两行代码 |
 | 只改标题 | `title` 或命令行 `--title` |
 | 想看自己的仓位 | 顶层写 `trades` + `extra_panels` 仓位面板（完整示例 `configs/basis_zones_position.yaml`） |
+| 主图下加成交量子图 | 日线 `params` 下写 `volume_panel: true`（示例 `configs/daily_volume_demo.yaml`） |
+| 自定义副图 / 调面板高度 | 顶层 `extra_panels` + 可选 `row_heights`（如 `[0.6, 0.25, 0.15]`） |
 
 ## 五之二、深色策略图（日线/日内）
 
@@ -243,9 +245,9 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 
 非法 type / 缺参数会以中文报错定位到条目序号。
 
-### 元素类型目录（15 原语 / 20+ 语义要素）
+### 元素类型目录（16 原语 / 20+ 语义要素）
 
-绘图原语一共 **15 个**（`render/primitives.py`，分钟线继承 8 个 + 深色产品线新增 7 个）。同一原语按用法拆成语义要素——比如 `hline` 一个原语，按语义就是支撑线 / 压力线 / 多空分界线三种要素：
+绘图原语一共 **16 个**（`render/primitives.py`，分钟线继承 8 个 + 深色产品线新增 7 个 + 成交量子图 1 个）。同一原语按用法拆成语义要素——比如 `hline` 一个原语，按语义就是支撑线 / 压力线 / 多空分界线三种要素：
 
 | 原语(type) | 语义要素（按用法拆） | 说明 |
 |---|---|---|
@@ -259,6 +261,7 @@ X 轴只含实际交易时段（09:30–11:30、13:00–15:00），午休与跨�
 | `circle` | **关键点圆圈**（假突破/重要K线标记，可带序号） | ①②③④ 式圈注 |
 | `text` | **品种大字 / 高低点价签 / 形态说明 / 多空分界文字 / 通道标签** | 自由彩字 |
 | `tag` | **右缘价格药丸**（价格数字 / BULL / BEAR） | 固定挂在图右缘 |
+| `volume` | **成交量子图**（多面板） | 红涨青跌柱与 K 线同色语义，逐柱对齐；无量自动省略 |
 
 四张已交付图（15 分样板 / 伦敦金 / 沪铜 / 国债TL）的绘制层分布：40 / 26 / 49 / 35 层（合计 150）——其中 `arrow` 34、`text` 40 是标注主力，行情层（candle+MA）每图仅 5–6 层。
 
@@ -311,7 +314,9 @@ flowchart TD
 .venv/bin/python tools/verify_chart.py configs/chart_01_xau.yaml out/projects/chart_01_xau/chart.png --checks tests/acceptance_checks/chart_01.py
 ```
 
-通过时输出「验收通过: …（0 违规）」。三张样张复刻各配一份成品清单：`tests/acceptance_checks/chart_0{1,2,3}.py`（伦敦金 / 沪铜 / 国债）。
+通过时输出「验收通过: …（0 违规）」。三张样张复刻各配一份成品清单：`tests/acceptance_checks/chart_0{1,2,3}.py`（伦敦金 / 沪铜 / 国债）；多面板+成交量子图配 `tests/acceptance_checks/daily_volume.py`（合成演示数据随仓，任何环境可跑）。
+
+**改动前后渲染对比**：`tools/fig_compare.py` 把 13 个场景（含 7 份既有 config 原样渲染）落成 fig JSON 快照并做语义 diff——`--dump` 落盘基线/当前两份，`--diff` 逐场景报差异（复跑步骤见工具 docstring）。
 
 ### 读图证据约定（`out/refs/`）
 
@@ -332,13 +337,24 @@ flowchart TD
 
 ### 均线工作日换算与预测区
 
-- **均线默认按工作日**：日内周期下 `params.ma` 的 N = N 个**工作日**（15 分钟图 `ma: 5` = 16×5 = 80 根）；`ma_unit: "bar"` 特别约定按根数。窗口超数据长度时如实画 partial（不静默截断）。
+- **均线默认按工作日**：日内周期下 `params.ma` 的 N = N 个**工作日**（15 分钟图 `ma: 5` = 16×5 = 80 根）；`ma_unit: "bar"` 特别约定按根数。窗口 ≤ 数据长度时画 partial 末段（不静默截断）；窗口 > 数据长度时该 MA 不画（图例同步消失）并在脚注回显「MA 窗口超出数据长度（N根），未绘制」——与 TradingView/通达信一致，不阻断整图。
 - **右缘预测区**：`forecast_days`（顶层，单位**工作日**，默认 2）——为 BULL/BEAR 走势预演留出右侧空白作图区；日线策略图建议 10–15。脚注回显换算（"预测区: 15个工作日 ≈ 15根"）。
 - **内置渲染可见性守卫**：任何元素超出 xaxis 范围（Plotly 会静默裁剪、图上不可见）都会在脚注追加"⚠ 渲染可见性警告"——写错坐标当场可见，不靠人眼发现。
 
+### 多面板与成交量子图（日线/日内同一机制）
+
+日线与日内共用同一套多面板机制：顶层 `panels`（整体替换）/ `extra_panels`（追加）+ 可选 `row_heights`（每行高度占比，默认主图 0.72、其余平分 0.28）。多面板共享 X 轴——主图与子图逐柱对齐，时间刻度只画在最底面板。
+
+- **成交量子图（最常用）**：日线 `params` 下写 `volume_panel: true`，一键在主图下追加成交量子图（等价于手写 `extra_panels: [{title: 成交量, y_title: 成交量, range_cols: [volume], layers: [{type: volume, col: volume}]}]`）。数据取适配器 `volume` 列（CSV `成交量`/`volume`，中英表头兼容）；量柱红涨青跌与 K 线同色语义（色值取自主题，可配 `up/down/opacity/width` 覆盖）；量轴下限锁 0。无量品种（如伦敦金现货）自动省略，脚注提示"无量"。
+- **自定义副图**：任意原语都能放进 `extra_panels` 的 `layers`（如把某条均线单独放大到副图：`{title: MA5, y_title: MA5, layers: [{type: line, col: ma5, name: MA5}]}`）；副图缺省轴与字面 `axis: "y"` 自动注入本面板主轴，`range_cols` 指定纵轴取数列（缺省收面板内所有带 `col` 的图层）；`zero_floor: true` 可对任意副图锁 0 基线（量柱面板自动）。
+- **新增子图类型**：子图类型 = 绘图原语，约定式自动发现（`render/primitives.py` 加 `_<type>` 即可，无注册表）——接口约定见设计文档 §9.5。
+- 空面板列表报错；单面板配置走原路径，渲染结果与多面板改造前逐字节一致（回归测试钉死）。
+
+示例：`configs/daily_volume_demo.yaml`（合成数据 `examples/daily_volume_demo.csv` 随仓，可离线复现），成品 `out/projects/daily_volume_demo/chart.png`。
+
 ### 验收清单与待办
 
-- 每幅样张复刻图配一份**三层验收清单**（`tests/acceptance_checks/<图>.py`，L1 要素 / L2 相对位置 / L3 数学关系 + 渲染保真），由 `tests/test_acceptance_charts.py` parametrize 装载，`chartflow` 出图后跑一遍即机器验收；
+- 每幅样张复刻图配一份**三层验收清单**（`tests/acceptance_checks/<图>.py`，L1 要素 / L2 相对位置 / L3 数学关系 + 渲染保真），由 `tests/test_acceptance_charts.py` parametrize 装载，`chartflow` 出图后跑一遍即机器验收（含多面板+成交量子图的 `daily_volume_demo`，CSV 随仓不 skip）；
 - 发现但暂不解决的问题登记在 [`docs/backlog/README.md`](docs/backlog/README.md)（如通道自动分段器——拟合主观性强，需人工先指定段边界）。
 
 ### 最小 YAML 示例（摘自 configs/daily_candle.yaml 头部）

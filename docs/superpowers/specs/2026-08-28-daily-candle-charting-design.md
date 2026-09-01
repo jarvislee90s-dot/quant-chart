@@ -23,12 +23,12 @@ flowchart LR
     AD["规范宽表 datetime+pos+open/high/low/close+volume"] --> SL
     SL["build_daily_slots<br/>每bar一格pos·粒度自适应刻度/分隔"] --> PL
     PL["插件 daily_candle<br/>工作日均线·channels自动拟合·annotations声明式（不碰plotly）"] --> RD
-    RD["figure_daily<br/>深色主题单面板+预测区"] --> OUT["PNG 1600×900 + HTML"]
+    RD["figure_daily<br/>深色主题（单面板原路径/多面板共享X）+预测区"] --> OUT["PNG 1600×900 + HTML"]
 ```
 
 1. **旁路原则**：`run_pipeline` 对 `daily_*` 前缀配置转投 `run_daily_pipeline`，复用插件注册表/panels 合并/events 接线；CLI 零改动。
 2. **分层不变**：插件只算不画（不 import plotly）；视觉一律经通用原语翻译；「数据/计算/外观」三层配置理念延续；错误信息中文定位到字段路径/条目序号。
-3. **单面板约束**：日线图暂只支持单面板，多面板明确报错。
+3. **单面板约束**：日线图暂只支持单面板，多面板明确报错。（~~已解除~~：2026-08-31 task2 解除该红线，多面板接入与日内同一机制，见 §9 增补）
 
 ## 3. 功能需求
 
@@ -77,7 +77,7 @@ flowchart LR
 ### FR-5 策略插件 daily_candle
 
 - 签名：`run(df, slots, ma=[5,10,20,30,60], ma_unit="day", annotations=None, channels=None, **params)`
-- **均线默认按工作日换算**：`bars_per_day = len(df)/唯一日期数`；频率高于日线时窗口 = `n × bars_per_day`（15 分钟下 [5,10,20,30,60] → [80,160,320,480,960] 根，即 5/10/20/30/60 个工作日）；`ma_unit: "bar"` 特别约定按根数；窗口超出数据长度时画 partial（不静默截断，如 ma60 仅末段）
+- **均线默认按工作日换算**：`bars_per_day = len(df)/唯一日期数`；频率高于日线时窗口 = `n × bars_per_day`（15 分钟下 [5,10,20,30,60] → [80,160,320,480,960] 根，即 5/10/20/30/60 个工作日）；`ma_unit: "bar"` 特别约定按根数；窗口 ≤ 数据长度时画 partial 末段（不静默截断，如 ma60 仅末段）；**窗口 > 数据长度时该 MA 不画**（图层移除、图例同步消失）+ 脚注回显「MA 窗口超出数据长度（N根），未绘制」——与 TradingView/通达信「窗口不足不画不报错」一致，不阻断整图（backlog #23，见 §9.6）
 - **channels 自动拟合**：每条 `{start, end, tilt, press, color, dash, label}` → 调 `fit_channel` 产出通道图层（中枢端点+下探/上张量）
 - **事件式锚定**：start/end 除日期字符串外支持规则式——`{peak/trough: true}`（窗口最高/最低价那根 bar）、`{above/below: 价, after?: 起始日}`（该价位首破事件）；解析结果回显脚注，无命中/非法规则中文报错——通道起止绑定业务事件，数据刷新自动重锚，杜绝硬编码日期漂移
 - **annotations**：声明式标注列表（FR-3 各类型），插件逐条校验（未知 type/缺参数 → 中文报错定位条目序号）
@@ -138,7 +138,77 @@ flowchart LR
 ## 8. 已知限制与后续
 
 - 免费源 15 分钟深度约 1023 根（≈64 交易日），更长窗口需 Wind 导出 Excel 补数；
-- XAU 无量：volume 可选语义未实现（二期前置任务）；
+- ~~XAU 无量：volume 可选语义未实现（二期前置任务）~~——已实现（2026-08-31 task2）：
+  适配器 volume 列缺失即丢列+脚注"无量"，量图层自动省略（见 §9 增补）；
 - 主连/合约拼接口径与原报告制作口径可能不同，以风格同款为验收；
 - `CSV(…)` 数据来源前缀对日内周期不严谨，随通道语义升级一并处理；
 - 模板标注坐标与具体数据绑定，换数据需按 fit_channel 重新校准（约定：优先日期锚点，pos 仅用于右缘画布外元素）。
+## 9. 增补（2026-08-31，task2）：多面板与成交量子图接口约定
+
+### 9.1 多面板：与日内 extra_panels 同一机制（接入统一，不另立体系）
+
+- 配置面：顶层 `panels`（整体替换）/ `extra_panels`（追加）/ `row_heights`（每行高度占比，
+  默认主图 0.72、其余平分 0.28）三个键跨日线/日内同效；`merge_panels` 优先级不变
+  （panels > extra_panels > 插件默认）。
+- 渲染面：`build_daily_figure` 按面板数分派——N==1 走 `_build_daily_single`（原路径，
+  回归测试钉死逐字节不变）；N>1 走 `_build_daily_multi`（`make_subplots(shared_xaxes=True)`，
+  与日内 `_build_multi` 同构：主图保留右缘预测区、时间刻度只画最底面板、逐面板纵轴
+  按 `range_cols` 或层内 line/volume 列自适应）。
+- 轴重映射 `_remap_daily_axes`：面板≥2 时，原语缺省轴（area/hline/events 默认 y2）与字面
+  `axis: "y"` 注入本面板主轴；日线无贴水 overlay，比日内少一层 y2→overlay 重定向。
+- 可见性守卫与脚注装配抽为 `_visibility_warnings`/`_annotate`，单/多面板共用
+  （多面板共享 X，统一对顶轴范围校验）。
+
+### 9.2 成交量子图（volume 原语 + params.volume_panel）
+
+- 数据口径：适配器 `volume` 列（CSV `成交量`/`volume`，中英表头已映射）；无量品种
+  （如伦敦金现货）适配器丢列且脚注"无量"，量图层自动省略、不画空面板。
+- 原语 `_volume`：Bar 柱，红涨青跌与 K 线同色语义（缺省取 `theme.DARK["up"]/["down"]`，
+  可配 `up/down/opacity/width` 覆盖）；x=pos 数值轴，多面板 shared_xaxes 逐柱对齐；
+  列缺失/全 NaN 自动省略。
+- 一键声明：`params.volume_panel: true` 由 daily_candle 插件追加预置面板
+  （`{title: 成交量, y_title: 成交量, range_cols: [volume], layers: [{type: volume}]}`），
+  与手写 `extra_panels` 等价二选一；量柱面板纵轴下限锁 0（`_panel_range(zero_floor=True)`）。
+
+### 9.3 配套修复（P2#3 / P2#4，详见 DEVIATIONS.md「Task2 偏差记录」）
+
+- P2#3：`_hline` 线体与标注共用 xref，消除死赋值；"只给 to 不给 from"标注不再错位。
+- P2#4：贴水副轴刻度改数据自适应——遗留包络（b0≥-15、b1≤400、rate≤5.55）内保持历史
+  范围/刻度零变化，包络外按 `_nice_step` 整齐生成、下限随数据下扩，不再裁切。
+- 连带：`qa/verify._by_color` 跳过无 `.line` 的 trace（Bar 量柱入图后 AttributeError）。
+
+### 9.4 验收
+
+- 新增 `tests/acceptance_checks/daily_volume.py`（三层清单）+ 登记
+  `test_acceptance_charts` 第 4 图 `daily_volume_demo`（CSV `examples/` 随仓，任何环境可跑）；
+- 示例：`configs/daily_volume_demo.yaml`（合成数据 `tools/make_demo_daily.py`，种子
+  20260831 可复现），成品 `out/projects/daily_volume_demo/chart.png`；
+- 口径：`pytest -q -m "not integration_localds"` 160 passed / 0 failed（基线 138+1failed
+  → 138 不减、预存失败修复）；单面板路径快照 0 diff（`daily_single`/`daily_e2e`）。
+
+### 9.5 扩展契约：新增一种子图类型（注册/发现方式）
+
+面板本身是开放结构（`{title, y_title?, range_cols?, zero_floor?, layers: [...]}`），
+子图类型 = 绘图原语（`render/primitives.py` 的 `_<type>` 函数），**约定式自动发现**
+（`draw()` 按 `f"_{spec['type']}"` getattr 分派，无注册表需要改）。新增一种子图类型：
+
+| 步骤 | 文件 | 改动点 |
+|---|---|---|
+| 1（唯一必改） | `src/quantchart/render/primitives.py` | 加 `_<type>(fig, spec, ctx)`：从 `ctx.df` 取数列、按 `ctx.xaxis/ctx.yaxis` 绑定本面板轴（`yaxis=None if ctx.yaxis=="y" else ctx.yaxis`） |
+| 2（可选） | `src/quantchart/render/figure_daily.py` | 若该类型需 0 基线：面板 `zero_floor: true`（或含量柱层自动）；纵轴取数列缺省已收所有带 `"col"` 的图层，一般无需改 |
+| 3（可选） | `src/quantchart/plugins/daily_candle.py` | 若要一键声明参数（如 `volume_panel`），加 params 键与预置面板 |
+| 4 | `tests/` | 原语测试 + 面板布局测试 |
+
+约束：新原语须 (a) 经 `ctx.yaxis` 绑定本面板轴（不落主图）；(b) 无量/缺列时省略不崩
+（参照 `_volume`：列缺失/全 NaN → return）；(c) 深色主题色值取 `theme.DARK` 不内嵌字面。
+
+### 9.6 MA 窗口超数据长度（backlog #23，追加轮落地）
+
+- 窗口 ≤ 数据长度：画 partial 末段（rolling 天然语义，不静默截断）；
+- 窗口 > 数据长度：`rolling(w)` 全 NaN（无可用段），该 MA **不画**——图层移除、
+  图例同步消失，脚注回显「MA 窗口超出数据长度（N根），未绘制: MA20（20根）、…」；
+- 不选「画可用部分」（须 `min_periods=1`，会把 MA20 算成 5 根均值、篡改语义）；
+  不选「报错」（多窗口混合时一个超长窗口毁全图，行情软件从不因此拒绝出图）；
+- 配色按 MA 原序号取 `ma_palette`，缺失窗口不挤压其余 MA 配色；
+- 回归：窗口内/恰等于/超出/混合/日内换算路径五类（`test_daily_plugin.py`）
+  + e2e 脚注（`test_daily_pipeline.py::test_ma_overflow_footnote_and_no_trace`）。
