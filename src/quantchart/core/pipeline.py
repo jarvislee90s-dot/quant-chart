@@ -62,6 +62,11 @@ def run_pipeline(cfg: dict, title: str = "", row_heights: list | None = None) ->
               for p in panels]
     if not title:
         title = f"{cfg['strategy']}（{cfg['input'].get('range', ['',''])[0]}–{cfg['input'].get('range', ['',''])[1]}）"
+    # 长度校验与日线同文案：不符时报中文错误（否则多面板落到 plotly 英文报错，
+    # 单面板被 _build_single 静默丢弃，配置写错无迹可寻）
+    if row_heights is not None and len(row_heights) != len(panels):
+        raise ValueError(f"row_heights 长度 {len(row_heights)} 与面板数 {len(panels)} 不符"
+                         "（多面板时每个面板一个高度占比，如 [0.72, 0.28]）")
     fig = build_figure(out.df, slots, panels, rep, title=title, row_heights=row_heights)
     return fig, rep
 

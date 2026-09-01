@@ -137,6 +137,19 @@ def test_merge_panels_priority():
     assert merge_panels(d, u, e) == u + e
 
 
+def test_row_heights_length_mismatch_rejected_in_chinese():
+    # 日内 row_heights 长度校验（对齐日线文案）：与面板数不符报中文错误——
+    # 多面板时原落到 plotly 英文报错，单面板时被 _build_single 静默丢弃
+    with pytest.raises(ValueError, match=r"row_heights 长度 3 与面板数 2 不符"):
+        cfg = dict(CFG)
+        cfg["extra_panels"] = [{"title": "仓位", "y_title": "仓位",
+                                "layers": [{"type": "line", "col": "fut_close"}]}]
+        cfg["row_heights"] = [0.7, 0.2, 0.1]        # 3 ≠ 2 面板
+        run_pipeline(cfg)
+    with pytest.raises(ValueError, match=r"row_heights 长度 2 与面板数 1 不符"):
+        run_pipeline(dict(CFG, row_heights=[0.72, 0.28]))   # 单面板静默丢弃路径
+
+
 def test_row_heights_from_config():
     # YAML row_heights 对日内多面板同效（CLI 不传参时从 cfg 取，与日线同一路径）
     fig, _ = run_pipeline(dict(CFG_TRADES, row_heights=[0.5, 0.5]), title="t")
