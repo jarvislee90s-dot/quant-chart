@@ -139,3 +139,84 @@ def test_channels_rule_anchor_invalid():
     with pytest.raises(ValueError, match="锚点规则非法"):
         get_strategy("daily_candle")(_intraday_plugin_df(), None,
                                      channels=[{"start": {"sideways": True}, "end": "2026-07-01"}])
+
+
+def _df_with_volume():
+    df = _df()
+    df["volume"] = 100.0
+    return df
+
+
+def test_volume_panel_appends_second_panel():
+    load_plugins()
+    out = get_strategy("daily_candle")(_df_with_volume(), None, ma=[5], volume_panel=True)
+    assert len(out.panels) == 2
+    p1 = out.panels[1]
+    assert p1["title"] == "成交量" and p1["y_title"] == "成交量"
+    assert p1["range_cols"] == ["volume"]
+    assert p1["layers"] == [{"type": "volume", "col": "volume"}]
+
+
+def test_volume_panel_default_off():
+    load_plugins()
+    out = get_strategy("daily_candle")(_df_with_volume(), None, ma=[5])
+    assert len(out.panels) == 1                      # 缺省行为不变（单面板）
+
+
+def test_volume_panel_skipped_without_volume_column():
+    # 无量品种：不追加空面板（适配器脚注已提示"无量"）
+    load_plugins()
+    out = get_strategy("daily_candle")(_df(), None, ma=[5], volume_panel=True)
+    assert len(out.panels) == 1
+
+
+def test_volume_panel_invalid_type():
+    load_plugins()
+    with pytest.raises(ValueError, match="volume_panel"):
+        get_strategy("daily_candle")(_df_with_volume(), None, volume_panel="yes")
+
+
+# ── MA 窗口与数据长度关系（backlog #23）──
+
+def test_ma_window_within_data_kept():
+    # 窗口 < 数据长：图层保留，无回显
+    load_plugins()
+    out = get_strategy("daily_candle")(_df(), None, ma=[5])
+    assert [l["name"] for l in out.panels[0]["layers"] if l["type"] == "line"] == ["MA5"]
+    assert out.notes == []
+
+
+def test_ma_window_equals_data_length_kept():
+    # 窗口 == 数据长：保留（末点单值 partial，rolling 语义不变），无回显
+    load_plugins()
+    out = get_strategy("daily_candle")(_df().head(10), None, ma=[10])
+    assert [l["name"] for l in out.panels[0]["layers"] if l["type"] == "line"] == ["MA10"]
+    assert out.notes == []
+
+
+def test_ma_window_beyond_dropped_with_note():
+    # 窗口 > 数据长：图层移除（不画、不阻断）+ 脚注回显（不静默）
+    load_plugins()
+    out = get_strategy("daily_candle")(_df().head(12), None, ma=[20, 60])
+    assert not any(l["type"] == "line" for l in out.panels[0]["layers"])
+    assert any("MA20（20根）" in n and "MA60（60根）" in n and "未绘制" in n
+               for n in out.notes)
+
+
+def test_ma_windows_mixed_keeps_shorter_with_note():
+    # 混合：短窗口保留且配色按原序号（不被缺失窗口挤压），长窗口移除并回显
+    load_plugins()
+    out = get_strategy("daily_candle")(_df().head(12), None, ma=[5, 20, 60])
+    line = [l for l in out.panels[0]["layers"] if l["type"] == "line"]
+    assert [l["name"] for l in line] == ["MA5"]
+    assert line[0]["color"] == DARK["ma_palette"][0]
+    assert any("MA20（20根）" in n and "MA60（60根）" in n for n in out.notes)
+
+
+def test_ma_overflow_intraday_converted_windows():
+    # 日内换算路径：ma5 按工作日换算成 80 根，80 > 64 根 → 不画并回显换算后窗口
+    load_plugins()
+    df = _intraday_plugin_df(bars_per_day=16, days=4)
+    out = get_strategy("daily_candle")(df, None, ma=[5])
+    assert not any(l["type"] == "line" for l in out.panels[0]["layers"])
+    assert any("MA5（80根）" in n for n in out.notes)

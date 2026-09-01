@@ -54,14 +54,22 @@ def run(df, slots, ma=None, ma_unit="day", annotations=None, channels=None,
     for n, w in zip(ma, windows):
         df[f"ma{n}"] = df["close"].rolling(w).mean()
 
+    # 窗口 > 数据长度时 rolling 全 NaN（无可用段——画"可用部分"须 min_periods=1，
+    # 会把 MA20 算成 5 根均值、篡改语义）：该 MA 不画（图层移除、图例同步消失）+
+    # 脚注回显。与 TradingView/通达信"窗口不足不画不报错"一致；多窗口混合时局部降级
+    # 而非阻断整图。颜色按原序号取，缺失窗口不影响其余 MA 的配色。
+    ch_notes = []
     palette = DARK["ma_palette"]
+    skipped = [(n, w) for (n, w) in zip(ma, windows) if w > len(df)]
     layers = [{"type": "candle", "name": "K线", "up": DARK["up"], "down": DARK["down"]}]
     layers += [{"type": "line", "col": f"ma{n}", "name": f"MA{n}",
                 "color": palette[i % len(palette)], "width": 1.2}
-               for i, n in enumerate(ma)]
+               for i, (n, w) in enumerate(zip(ma, windows)) if w <= len(df)]
+    if skipped:
+        ch_notes.append(f"MA 窗口超出数据长度（{len(df)}根），未绘制: "
+                        + "、".join(f"MA{n}（{w}根）" for n, w in skipped))
     # 声明式通道：每条只写窗口+样式，两轨由 fit_channel 自动拟合（中枢主导三步法）。
     # 窗口端点支持事件式锚定（peak/trough/above/below），数据刷新自动重锚，杜绝硬编码日期漂移。
-    ch_notes = []
     for k, c in enumerate(channels or []):
         if not isinstance(c, dict) or not c.get("start") or not c.get("end"):
             raise ValueError(f"channels[{k}] 必须是含 start/end 的映射"

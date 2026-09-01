@@ -10,7 +10,7 @@
 | 3 | 2026-08-29 | `expect_point_on`/`expect_span`/`expect_last_candle_right_of` 为参数式断言（不读 fig） | 清单作者须自行保证参数取自 fig 实际坐标；docstring 已注明。改进方向：提供"从 fig 反查元素坐标"的取值助手 | qa.verify Task 1 审查 |
 | 4 | 2026-08-29 | 可见性守卫未覆盖 `layout.shapes` 类数据坐标元素 | chart_03 已自行扩展 shapes 分支；守卫内置化后统一覆盖——**已部分落地**（figure_daily 内置守卫覆盖 traces/annotations/shapes），遗留：验收清单侧的 shapes 校验模板未同步 | Task 3 修复回合 |
 | 5 | 2026-08-29 | CSV 通道改名 `bar_csv`（脚注"条形CSV"前缀对日内/月线周期语义不严谨） | 涉及配置兼容（旧 YAML 的 mode 名），随二期通道体系升级一并处理 | 第七轮·周期参数化 |
-| 6 | 2026-08-29 | MA 窗口超数据长度时 partial 渲染（如 15 分钟图 MA120 只画末段） | 语义保留（真实含义），不静默截断；如需强制全历史由数据量决定 | 第七轮·工作日均线换算 |
+| 6 | 2026-08-29 | MA 窗口超数据长度时 partial 渲染（如 15 分钟图 MA120 只画末段） | 语义保留（真实含义），不静默截断；如需强制全历史由数据量决定 | 第七轮·工作日均线换算；**追加轮已落地**：窗口>数据长不画+脚注回显（backlog #23，见 IMPLEMENTATION_NOTES §八） |
 | 7 | 2026-08-29 | 对照图入库策略（out/ 被 gitignore，留档图不入库） | 约定如此；如需归档 `git add -f out/_compare_*.png` | Task 6 收官 |
 | 8 | 2026-08-29 | `expect_parallel` 对垂直轨 ZeroDivision；`_by_color` 对无 line 属性 trace 的 AttributeError 风险 | 本域验收图不含此类元素 | qa.verify Task 1 审查 |
 | 9 | 2026-08-29 | akshare 接口漂移监控（15 分钟/外盘源可能随时间变化） | 锁定 local-datasource 基线 d106144 + 失败报错指引兜底；长期需定期重验 | 第八轮·TL0 两年窗 |
