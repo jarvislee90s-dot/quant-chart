@@ -84,9 +84,13 @@ def _zone(fig, spec, ctx):
 
 def _hline(fig, spec, ctx):
     yref = spec.get("axis", "y2")
-    if spec.get("from") or spec.get("to"):
-        x0 = _xof(ctx, spec.get("from", ctx.df["pos"].min()))
-        x1 = _xof(ctx, spec.get("to", ctx.df["pos"].max()))
+    has_from, has_to = bool(spec.get("from")), bool(spec.get("to"))
+    if has_from or has_to:
+        # 数据坐标段：缺省端取数据首/末 pos；线体与标注共用同一 xref（P2#3：
+        # 原实现"只给 to"时标注 xref 退化为 paper、x 取数据 pos——锚点错位到纸面外）
+        x0 = _xof(ctx, spec["from"]) if has_from else float(ctx.df["pos"].min())
+        x1 = _xof(ctx, spec["to"]) if has_to else float(ctx.df["pos"].max())
+        xref = ctx.xaxis
     else:
         x0, x1 = 0, 1
         xref = "paper"
@@ -95,13 +99,11 @@ def _hline(fig, spec, ctx):
     yv = spec.get("value")
     if yv is None and spec.get("col_last"):
         yv = float(ctx.df[spec["col_last"]].dropna().iloc[-1])
-    xref = ctx.xaxis if (spec.get("from") or spec.get("to")) else "paper"
     fig.add_shape(type="line", x0=x0, x1=x1, y0=yv, y1=yv, xref=xref, yref=yref,
                   line=dict(color=spec.get("color", "#83898f"),
                             width=spec.get("width", 1.1), dash=spec.get("dash", "dash")))
     if spec.get("label"):
-        fig.add_annotation(x=x0, y=yv, yref=yref,
-                           xref=ctx.xaxis if spec.get("from") else "paper",
+        fig.add_annotation(x=x0, y=yv, yref=yref, xref=xref,
                            text=spec["label"], showarrow=False,
                            xanchor="left", yanchor="bottom",
                            font=dict(size=10.5, color=spec.get("label_color",
