@@ -25,7 +25,7 @@ def _build_daily_single(df, slots, panel, rep, title: str, notes, forecast_days)
     fig = go.Figure()
     # 原语按 ctx.df["pos"] 取坐标：统一用 slots.df（含 pos 列），兼容外部传入未加 pos 的 df
     ctx = Ctx(slots=slots, df=slots.df)
-    for spec in panel.get("layers", []):
+    for spec in _remap_daily_axes(panel.get("layers", []), "y"):
         draw(fig, spec, ctx)
 
     bars_per_day = len(df) / max(1, len(slots.day_span))
@@ -49,12 +49,13 @@ def _build_daily_single(df, slots, panel, rep, title: str, notes, forecast_days)
     return fig
 
 
-def _remap_daily_axes(layers: list[dict], default_axis: str | None) -> list[dict]:
-    """多面板轴重映射：面板≥2 中原语缺省轴（area/hline/events 默认 y2）与字面 "y"
-    统一注入本面板主轴——日线无贴水 overlay 体系，缺省即"本面板轴"；
-    面板0（default_axis=None）原样返回，单面板路径不经此处（与日内 _remap_axes 同构）。"""
-    if default_axis is None:
-        return layers
+def _remap_daily_axes(layers: list[dict], default_axis: str) -> list[dict]:
+    """轴缺省解析：原语缺省轴（area/hline/events 默认 y2——日内贴水 overlay 语义）
+    与字面 "y" 统一注入本面板主轴。日线无贴水 overlay，缺省即"本面板轴"——
+    所有面板（含面板0/单面板）一律解析：多面板下 y2 恰为第 2 行的真实轴，
+    手写层缺省会静默画错面板；单面板下 y2 是幽灵轴（线不可见/触发 _hline 守卫
+    误报"副轴请给 from/to"）。插件自产层已注入 axis="y"（no-op），仅手写
+    panels:/extra_panels 层受影响。显式 "y2" 视为字面轴引用，不做改写。"""
     out = []
     for spec in layers:
         s = dict(spec)
@@ -78,8 +79,7 @@ def _build_daily_multi(df, slots, panels, rep, title, notes, forecast_days,
         # plotly 主轴（第1行）引用名固定为 x/y（无编号）；y1/x1 不是合法轴引用
         xax = "x" if i == 1 else f"x{i}"
         yax = "y" if i == 1 else f"y{i}"
-        layers = _remap_daily_axes(panel.get("layers", []),
-                                   None if i == 1 else yax)
+        layers = _remap_daily_axes(panel.get("layers", []), yax)
         ctx = Ctx(slots=slots, df=slots.df, xaxis=xax, yaxis=yax)
         for spec in layers:
             draw(fig, spec, ctx)

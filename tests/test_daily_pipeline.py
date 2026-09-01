@@ -152,6 +152,21 @@ def test_volume_panel_e2e(tmp_path):
     assert fig.layout.yaxis2.range[0] == 0.0                 # 量轴 0 基线
 
 
+def test_handwritten_panels_replacement_axis_e2e(tmp_path):
+    # panels: 整体替换插件面板（merge_panels 最高优先级）——手写层不经插件
+    # setdefault(axis=y) 注入，缺省轴须由渲染层解析到主图主轴 "y"，
+    # 不得落到第 2 行量轴 y2（原语缺省 y2 是日内贴水 overlay 语义）
+    cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
+    cfg["panels"] = [{"title": "主图", "layers": [
+                          {"type": "candle"},
+                          {"type": "hline", "value": 7060, "label": "手写支撑"}]},
+                     {"title": "成交量", "y_title": "成交量", "range_cols": ["volume"],
+                      "layers": [{"type": "volume", "col": "volume"}]}]
+    fig, _ = run_pipeline(cfg)
+    hline = next(s for s in fig.layout.shapes if s.y0 == 7060)
+    assert hline.yref == "y"
+
+
 def test_row_heights_applied(tmp_path):
     cfg = load_config(_write_cfg(tmp_path, CFG_TMPL))
     cfg["params"]["volume_panel"] = True

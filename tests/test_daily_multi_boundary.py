@@ -147,3 +147,33 @@ def test_undetermined_panel_range_note():
     assert tuple(fig.layout.yaxis2.range) == (0.0, 1.0)
     assert "无法确定 y 范围" in texts
     assert "zero_floor" in texts                       # 提示给排查方向
+
+
+def test_handwritten_panel0_default_axis_resolves_to_main_axis():
+    # 手写 panels: 整体替换插件面板时，panel[0] 的 hline/area 缺省轴须解析到本面板
+    # 主轴 "y"——原语缺省 "y2" 是日内贴水 overlay 语义，日线多面板下 y2 恰为
+    # 第 2 行量轴，价位线/面积区会被静默画到副图上（数据段 hline 无守卫拦截）
+    df = _df([(1.0, 2.0, 0.5, 1.5)] * 3)
+    df["spread"] = [1.0, -1.0, 1.0]
+    panels = [{"title": "主图", "layers": [
+                   {"type": "candle"},
+                   {"type": "hline", "value": 2.2, "label": "手写价位",      # 无 axis
+                    "from": "2026-06-01", "to": "2026-06-03"},              # 数据段（静默路径）
+                   {"type": "area", "col": "spread"}]},                     # 无 axis
+              {"title": "成交量", "y_title": "成交量", "range_cols": ["volume"],
+               "layers": [{"type": "volume", "col": "volume"}]}]
+    fig = _fig(df, panels)
+    hline = next(s for s in fig.layout.shapes if s.y0 == 2.2)
+    assert hline.yref == "y"                                # 不再漏到第 2 行的 y2
+    fills = [t for t in fig.data if getattr(t, "fill", None)]
+    assert fills and all(t.yaxis == "y" for t in fills)     # 面积区同落主轴
+
+
+def test_handwritten_single_panel_default_axis_resolves_to_main_axis():
+    # 单面板同根因：手写纸面全宽 hline 缺省轴是幽灵 "y2"，曾被 _hline 守卫误报
+    # "副轴请给 from/to"（用户并未要求副轴）；解析到主轴后全宽线直接可用
+    panels = [{"title": "主图", "layers": [{"type": "candle"},
+                                           {"type": "hline", "value": 1.8}]}]
+    fig = _fig(_df([(1.0, 2.0, 0.5, 1.5)] * 2), panels)
+    hline = next(s for s in fig.layout.shapes if s.y0 == 1.8)
+    assert hline.yref == "y"
