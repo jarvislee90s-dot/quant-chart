@@ -289,3 +289,51 @@ xref/tickvals/range 修复面；意外 diff（回归）0 处。
   窗口内 / 恰等于 / 超出 / 多窗口混合 / 日内换算路径（ma5→80 根 > 64 根）/ e2e 脚注；
 - 兼容：fig_compare 既有 11 场景全 0 diff（既有 config 窗口均在数据长内），
   pytest 176 passed / 0 failed。
+
+## 九、合并后修复轮（2026-09-01，PR #1 合并评审 + 三笔加固）
+
+PR #1 评审发现三处问题：一处自述不变式破损（合并前修上 PR 分支）、两处 P3
+边角（合并后直接 master）。全部 TDD（修前 RED → 修后 GREEN）+ gate 验证。
+
+### 9.1 P2#4 包络内下限 leak（commit 9d52c2e，合并前修入 PR）
+
+- **问题**：`_basis_axis` 包络分支返回 `min(-15, b0-10%span)`——当 `0.1*span > b0+15`
+  （如贴水 -10..100，包络内）下限突破 -15，违背 PR 自述"包络内逐值不变"。
+  钉死测试与 gate 合成数据的贴水都在 300 附近，恰好不在 leak 区——守护未覆盖
+  其声称的不变式。
+- **修法**：包络分支直接返回 `-15.0`（历史值）；数据下扩只属超包络分支（行为不变，
+  `test_basis_axis_beyond_envelope_not_clipped`/`negative_floor_extends` 原测全过）。
+- **证据**：leak 区 5 例参数化回归 `test_basis_axis_envelope_floor_pinned_at_minus15`
+  （4 leak 区 + 1 对照；修前 4 败/修后全过，断言含贴水率轴联动）；全量 188P/0F；
+  gate 14 场景 PASS（场景数据均不在 leak 区，修复对既有渲染零影响）。
+
+### 9.2 日线手写面板缺省轴解析（commit dcf92a6）
+
+- **根因**：轴缺省解析责任放错层——原语层硬编码 `y2`（日内贴水 overlay 语义），
+  日内 `_remap_axes` 对 panel[0] 缺省解析到 `overlay_y2`（语义正确），日线版拷贝时
+  把 panel[0] 的解析整个丢掉（`default_axis=None` 原样返回），单面板路径不经 remap。
+  `panels:` 整体替换插件面板（merge_panels 最高优先级）绕过插件
+  `setdefault(axis="y")` 注入 → 缺省漏到硬编码 `y2`。
+- **症状矩阵**（比评审初判更广）：多面板+数据段 hline/area → 静默画到第 2 行量轴；
+  纸面全宽 hline → `_hline` 守卫误报"副轴请给 from/to"（用户并未要求副轴）；
+  单面板+数据段 → 幽灵轴线不可见。
+- **修法**：`_remap_daily_axes` 覆盖所有面板（panel[0] 目标 `"y"`）+ 单面板路径接入；
+  显式 `axis: "y2"` 仍视为字面轴引用不改写。插件自产层已有 `axis="y"`，remap 是
+  no-op——gate 0 diff 证实既有渲染零影响。
+- **证据**：3 回归（多面板静默路径 / 单面板误报路径 / `panels:` 整体替换 e2e），
+  修前全败修后全过；全量 194P/0F；gate PASS。偏离"与日内同构"注记已登记 DEVIATIONS。
+
+### 9.3 日内 row_heights 长度校验（commit 723ba67）
+
+- **问题**：长度与面板数不符时——多面板落到 plotly 英文报错
+  （`must be a list of numbers of length 2`），**单面板被 `_build_single` 静默丢弃**
+  （配置写错无迹可寻，比评审初判的"英文报错"更糟）。
+- **修法**：`run_pipeline` 面板数定稿后、`build_figure` 前校验，文案与日线一字不差。
+- **证据**：双路径回归（3≠2 多面板 / 2≠1 单面板静默路径），修前 plotly 英文错 +
+  DID NOT RAISE，修后中文报错；全量 195P/0F；gate PASS。
+
+### 9.4 文档同步
+
+- README「多面板与成交量子图」：row_heights 长度规则、缺省轴解析范围（所有面板
+  含手写主图/单面板）两处补句；
+- DEVIATIONS 登记 9.2 的"与日内同构"偏离（见「合并后修复轮」条目）。

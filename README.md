@@ -343,10 +343,10 @@ flowchart TD
 
 ### 多面板与成交量子图（日线/日内同一机制）
 
-日线与日内共用同一套多面板机制：顶层 `panels`（整体替换）/ `extra_panels`（追加）+ 可选 `row_heights`（每行高度占比，默认主图 0.72、其余平分 0.28）。多面板共享 X 轴——主图与子图逐柱对齐，时间刻度只画在最底面板。
+日线与日内共用同一套多面板机制：顶层 `panels`（整体替换）/ `extra_panels`（追加）+ 可选 `row_heights`（每行高度占比，默认主图 0.72、其余平分 0.28；**长度须等于面板数**，不符报中文错误，日线/日内同校验）。多面板共享 X 轴——主图与子图逐柱对齐，时间刻度只画在最底面板。
 
 - **成交量子图（最常用）**：日线 `params` 下写 `volume_panel: true`，一键在主图下追加成交量子图（等价于手写 `extra_panels: [{title: 成交量, y_title: 成交量, range_cols: [volume], layers: [{type: volume, col: volume}]}]`）。数据取适配器 `volume` 列（CSV `成交量`/`volume`，中英表头兼容）；量柱红涨青跌与 K 线同色语义（色值取自主题，可配 `up/down/opacity/width` 覆盖）；量轴下限锁 0。无量品种（如伦敦金现货）自动省略，脚注提示"无量"。
-- **自定义副图**：任意原语都能放进 `extra_panels` 的 `layers`（如把某条均线单独放大到副图：`{title: MA5, y_title: MA5, layers: [{type: line, col: ma5, name: MA5}]}`）；副图缺省轴与字面 `axis: "y"` 自动注入本面板主轴，`range_cols` 指定纵轴取数列（缺省收面板内所有带 `col` 的图层）；`zero_floor: true` 可对任意副图锁 0 基线（量柱面板自动）。
+- **自定义副图**：任意原语都能放进 `extra_panels` 的 `layers`（如把某条均线单独放大到副图：`{title: MA5, y_title: MA5, layers: [{type: line, col: ma5, name: MA5}]}`）；**所有面板（含手写主图 `panels:`/单面板）**的缺省轴与字面 `axis: "y"` 均自动解析为本面板主轴（日线无贴水 overlay，缺省即"本面板轴"；显式 `axis: "y2"` 视为字面轴引用不改写），`range_cols` 指定纵轴取数列（缺省收面板内所有带 `col` 的图层）；`zero_floor: true` 可对任意副图锁 0 基线（量柱面板自动）。
 - **新增子图类型**：子图类型 = 绘图原语，约定式自动发现（`render/primitives.py` 加 `_<type>` 即可，无注册表）——接口约定见设计文档 §9.5。
 - 空面板列表报错；单面板配置走原路径，渲染结果与多面板改造前逐字节一致（回归测试钉死）。
 
